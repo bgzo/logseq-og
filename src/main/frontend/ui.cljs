@@ -1,7 +1,6 @@
 (ns frontend.ui
   "Main ns for reusable components"
-  (:require ["@logseq/react-tweet-embed" :as react-tweet-embed]
-            ["react-intersection-observer" :as react-intersection-observer]
+  (:require ["react-intersection-observer" :as react-intersection-observer]
             ["react-resize-context" :as Resize]
             ["react-textarea-autosize" :as TextareaAutosize]
             ["react-tippy" :as react-tippy]
@@ -45,7 +44,6 @@
 (def resize-provider (r/adapt-class (gobj/get Resize "ResizeProvider")))
 (def resize-consumer (r/adapt-class (gobj/get Resize "ResizeConsumer")))
 (def Tippy (r/adapt-class (gobj/get react-tippy "Tooltip")))
-(def ReactTweetEmbed (r/adapt-class react-tweet-embed))
 (def useInView (gobj/get react-intersection-observer "useInView"))
 
 (defn reset-ios-whole-page-offset!
@@ -1012,13 +1010,24 @@
 
 (rum/defcs tweet-embed < (rum/local true :loading?)
   [state id]
-  (let [*loading? (:loading? state)]
-    [:div [(when @*loading? [:span.flex.items-center [svg/loading " ... loading"]])
-           (ReactTweetEmbed
-            {:id                    id
-             :class                 "contents"
-             :options               {:theme (when (= (state/sub :ui/theme) "dark") "dark")}
-             :on-tweet-load-success #(reset! *loading? false)})]]))
+  (let [*loading? (:loading? state)
+        theme (state/sub :ui/theme)]
+    [:div.tweet-embed-wrapper
+     (when @*loading? [:span.flex.items-center [svg/loading " ... loading"]])
+     ;; Embed X/Twitter directly instead of loading the legacy
+     ;; platform.twitter.com widgets.js via @logseq/react-tweet-embed.
+     ;; The widgets script no longer resolves `twttr.ready()` inside the
+     ;; desktop app, which left every `{{twitter ...}}` macro stuck on
+     ;; "... loading". See https://github.com/bgzo/logseq-og/issues/2
+     [:iframe.tweet-embed
+      {:src (str "https://platform.x.com/embed/Tweet.html?id=" id
+                 (when (= theme "dark") "&theme=dark"))
+       :style {:width "100%" :min-height 240 :border 0}
+       :loading "lazy"
+       :allow "encrypted-media; picture-in-picture"
+       :allow-full-screen true
+       :on-load #(reset! *loading? false)
+       :on-error #(reset! *loading? false)}]]))
 
 (def icon shui/icon)
 
