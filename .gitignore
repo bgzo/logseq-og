@@ -18,6 +18,7 @@ static/**
 !static/yarn.lock
 tmp
 cljs-test-runner-out
+opencode.json
 
 .cpcache/
 /src/gen
