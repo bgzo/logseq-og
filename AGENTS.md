@@ -11,8 +11,8 @@ Guidance for OpenCode sessions in this repo. Deeper background lives in `CODEBAS
 ## Toolchain
 
 - Node 22, Java 11+ (desktop release CI uses 17), Clojure CLI 1.11.1.1413, babashka (`bb`) for repo tasks, `typos` for spell check.
-- Yarn 3.7.0 via corepack (`packageManager` field). The repo is mid-migration from v1-format lockfiles, so `yarn install` may rewrite lockfiles — expected, but don't regenerate lockfiles in unrelated changes.
-- `yarn install` at the root; its `postinstall` builds vendored `tldraw/` and `packages/amplify/`, both required by the app.
+- Yarn 1.22.22 via corepack (`packageManager` field). Root plus the vendored `tldraw/`, `packages/amplify/`, and `static/` projects all use v1-format lockfiles; don't regenerate lockfiles in unrelated changes. Do not use Yarn 3/Berry here: its CLI rejects the `yarn --cwd <dir> install` idiom these scripts rely on, and it rewrites the v1 lockfiles.
+- `yarn install` at the root; its `postinstall` builds vendored `tldraw/` and `packages/amplify/`, both required by the app (it runs them with `yarn --cwd … install`, which only works under Yarn 1).
 
 ## Commands
 
