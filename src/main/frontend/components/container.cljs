@@ -258,14 +258,16 @@
 (rum/defc namespace-node
   [node depth]
   (let [full-name (or (:original-name node) (:name node))
-        label (last (string/split full-name "/"))]
+        label (last (string/split full-name "/"))
+        entity (db/entity [:block/name (:name node)])]
     [:li
-     ;; Align top-level rows with the titles of favorites/recent items:
-     ;; 24px row padding + 36px for the page icon and its gap.
+     ;; Indent nested namespaces; top level shares the same left padding
+     ;; as favorites/recent items.
      [:a.cursor-pointer.flex.items-center
       {:title full-name
-       :style {:padding-left (str (+ 60 (* depth 12)) "px")}
+       :style {:padding-left (str (+ 24 (* depth 12)) "px")}
        :on-click (fn [_e] (route-handler/redirect-to-page! (:name node)))}
+      [:span.page-icon.ml-3.justify-center (get-page-icon entity)]
       [:span.page-title label]]
      (when (seq (:children node))
        [:ul
