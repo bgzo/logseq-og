@@ -260,9 +260,11 @@
   (let [full-name (or (:original-name node) (:name node))
         label (last (string/split full-name "/"))]
     [:li
+     ;; Align top-level rows with the titles of favorites/recent items:
+     ;; 24px row padding + 36px for the page icon and its gap.
      [:a.cursor-pointer.flex.items-center
       {:title full-name
-       :style {:padding-left (str (+ 24 (* depth 12)) "px")}
+       :style {:padding-left (str (+ 60 (* depth 12)) "px")}
        :on-click (fn [_e] (route-handler/redirect-to-page! (:name node)))}
       [:span.page-title label]]
      (when (seq (:children node))
