@@ -255,6 +255,41 @@
             :data-ref name}
            (page-name name (get-page-icon entity) true)]))])))
 
+(rum/defc namespace-node
+  [node depth]
+  (let [full-name (or (:original-name node) (:name node))
+        label (last (string/split full-name "/"))]
+    [:li
+     [:a.cursor-pointer.flex.items-center
+      {:title full-name
+       :style {:padding-left (str (+ 24 (* depth 12)) "px")}
+       :on-click (fn [_e] (route-handler/redirect-to-page! (:name node)))}
+      [:span.page-title label]]
+     (when (seq (:children node))
+       [:ul
+        (for [child (:children node)]
+          (rum/with-key (namespace-node child (inc depth)) (:name child)))])]))
+
+(rum/defc namespaces < rum/reactive db-mixins/query
+  [t]
+  (let [relations (some-> (db/react-query (state/get-current-repo)
+                                          {:query db-model/namespace-relations-query}
+                                          {})
+                          util/react)
+        forest (db-model/get-namespace-forest relations)]
+    (when (seq forest)
+      (nav-content-item
+       [:a.flex.items-center.text-sm.font-medium.rounded-md.wrap-th
+        (ui/icon "sitemap" {:size 16})
+        [:strong.flex-1.ml-2 (string/upper-case (t :left-side-bar/nav-namespaces))]]
+
+       {:class "namespaces"
+        :count (count forest)}
+
+       [:ul.text-sm
+        (for [node forest]
+          (rum/with-key (namespace-node node 0) (:name node)))]))))
+
 (rum/defcs flashcards < db-mixins/query rum/reactive
   {:did-mount (fn [state]
                 (srs/update-cards-due-count!)
@@ -400,7 +435,7 @@
                               (close-modal-fn)))
        :on-click          #(when-let [^js target (and (util/sm-breakpoint?) (.-target %))]
                              (when (some (fn [sel] (boolean (.closest target sel)))
-                                         [".favorites .bd" ".recent .bd" ".dropdown-wrapper" ".nav-header"])
+                                         [".favorites .bd" ".recent .bd" ".namespaces .bd" ".dropdown-wrapper" ".nav-header"])
                                (close-fn)))}
 
       [:div.flex.flex-col.wrap.gap-1.relative
@@ -474,7 +509,10 @@
         (favorites t)
 
         (when (not config/publishing?)
-          (recent-pages t))]
+          (recent-pages t))
+
+        (when (not config/publishing?)
+          (namespaces t))]
 
        [:footer.px-2 {:class "create"}
         (when-not config/publishing?
