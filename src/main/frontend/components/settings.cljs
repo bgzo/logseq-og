@@ -294,6 +294,18 @@
                                  :warning true)
                                 (gobj/set elem "value" secs)))))}]]]]))
 
+(rum/defcs switch-backup-files-row < rum/reactive
+  [state t]
+  (let [enabled? (state/get-backup-enabled?)]
+    (toggle
+     "backup-files"
+     (t :settings-page/enable-backup-files)
+     enabled?
+     #(let [value (not enabled?)]
+        (state/set-state! [:electron/user-cfgs :feature/enable-backup?] value)
+        (ipc/ipc :userAppCfgs :feature/enable-backup? value))
+     [:span.text-sm.opacity-50 (t :settings-page/enable-backup-files-desc)])))
+
 (rum/defc app-auto-update-row < rum/reactive [t]
   (let [enabled? (state/sub [:electron/user-cfgs :auto-update])
         enabled? (if (nil? enabled?) true enabled?)]
@@ -776,7 +788,8 @@
    [:br]
    (switch-git-auto-commit-row t)
    (switch-git-commit-on-close-row t)
-   (git-auto-commit-seconds t)])
+   (git-auto-commit-seconds t)
+   (switch-backup-files-row t)])
 
 (rum/defc settings-advanced < rum/reactive
   [current-repo]

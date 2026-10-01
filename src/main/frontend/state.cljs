@@ -1939,6 +1939,10 @@ Similar to re-frame subscriptions"
   []
   (sub [:electron/user-cfgs :git/commit-on-close?]))
 
+(defn get-backup-enabled?
+  []
+  (not (false? (sub [:electron/user-cfgs :feature/enable-backup?]))))
+
 (defn set-last-key-code!
   [key-code]
   (set-state! :editor/last-key-code key-code))

@@ -256,12 +256,13 @@
 
 (defn backup-db-file!
   [repo path db-content disk-content]
-  (cond
-    (util/electron?)
-    (ipc/ipc "backupDbFile" (config/get-local-dir repo) path db-content disk-content)
+  (when (state/get-backup-enabled?)
+    (cond
+      (util/electron?)
+      (ipc/ipc "backupDbFile" (config/get-local-dir repo) path db-content disk-content)
 
-    (mobile-util/native-platform?)
-    (capacitor-fs/backup-file repo :backup-dir path db-content)
+      (mobile-util/native-platform?)
+      (capacitor-fs/backup-file repo :backup-dir path db-content)
 
-    ;; TODO: nfs
-    ))
+      ;; TODO: nfs
+      )))

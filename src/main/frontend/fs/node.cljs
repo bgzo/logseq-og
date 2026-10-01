@@ -53,7 +53,8 @@
           (->
            (p/let [result (ipc/ipc "writeFile" repo file-fpath content)
                    mtime (gobj/get result "mtime")]
-             (when-not contents-matched?
+             (when (and (not contents-matched?)
+                        (state/get-backup-enabled?))
                (ipc/ipc "backupDbFile" (config/get-local-dir repo) rpath disk-content content))
              (db/set-file-last-modified-at! repo rpath mtime)
              (db/set-file-content! repo rpath content)
