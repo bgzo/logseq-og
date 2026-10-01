@@ -294,23 +294,29 @@
                                  :warning true)
                                 (gobj/set elem "value" secs)))))}]]]]))
 
-(rum/defcs switch-backup-files-row < rum/reactive
+(rum/defcs switch-backup-files-row < (rum/local 0 ::request) rum/reactive
   [state t]
   (let [enabled? (state/get-backup-enabled?)]
     (toggle
      "backup-files"
      (t :settings-page/enable-backup-files)
      enabled?
-     #(let [value (not enabled?)]
+     #(let [value (not enabled?)
+            request (swap! (::request state) inc)
+            notify-failure! (fn []
+                              (when (= request @(::request state))
+                                (notification/show!
+                                 [:div (t :settings-page/enable-backup-files-save-failed)]
+                                 :error true)))]
         (state/set-state! [:electron/user-cfgs :feature/enable-backup?] value)
         ;; Re-read user configs after persisting so a failed write cannot
-        ;; leave the toggle out of sync with the main process.
-        (p/let [_ (ipc/ipc :userAppCfgs :feature/enable-backup? value)
-                _ (state/load-app-user-cfgs true)]
-          (when (not= value (state/sub [:electron/user-cfgs :feature/enable-backup?]))
-            (notification/show!
-             [:div (t :settings-page/enable-backup-files-save-failed)]
-             :error true))))
+        ;; leave the toggle out of sync with the main process. Only the
+        ;; latest click reports failures when toggled repeatedly.
+        (-> (p/let [_ (ipc/ipc :userAppCfgs :feature/enable-backup? value)
+                    _ (state/load-app-user-cfgs true)]
+              (when (not= value (state/sub [:electron/user-cfgs :feature/enable-backup?]))
+                (notify-failure!)))
+            (p/catch (fn [_e] (notify-failure!)))))
      [:span.text-sm.opacity-50 (t :settings-page/enable-backup-files-desc)])))
 
 (rum/defc app-auto-update-row < rum/reactive [t]
