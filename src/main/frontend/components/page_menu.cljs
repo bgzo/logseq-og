@@ -152,6 +152,7 @@
                          (state/close-modal!))}})
 
           (when (and (util/electron?) file-rpath
+                     (state/get-backup-enabled?)
                      (not (file-sync-handler/synced-file-graph? repo)))
             {:title   (t :page/open-backup-directory)
              :options {:on-click

@@ -196,6 +196,7 @@
  :settings-page/git-commit-delay "Git 自动 commit 间隔秒数"
  :settings-page/enable-backup-files "开启文件备份"
  :settings-page/enable-backup-files-desc "文件在磁盘上发生变化时，将旧内容保存到 logseq/bak。关闭后将不再生成这些小备份文件。"
+ :settings-page/enable-backup-files-save-failed "设置保存失败，请重试。"
  :settings-page/preferred-outdenting "逻辑缩进"
  :settings-page/show-brackets "显示括号 [[]]"
  :settings-page/spell-checker "单词拼写检查"
