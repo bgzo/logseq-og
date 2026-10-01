@@ -27,10 +27,10 @@ on:
         required: true
         default: false
       is-pre-release:
-        description: 'Pre Release? (skipped by the update feed; Beta/Release only)'
+        description: 'Pre Release? (prereleases are skipped by the update feed; Beta only)'
         type: boolean
         required: true
-        default: false
+        default: true
       enable-file-sync-production:
         description: 'File sync production mode'
         type: boolean

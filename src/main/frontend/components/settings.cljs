@@ -64,12 +64,6 @@
                 :class "text-sm mr-1"
                 :href "https://github.com/bgzo/logseq-og/releases")
 
-               (mobile-util/native-ios?)
-               (ui/button
-                (t :settings-page/check-for-updates)
-                :class "text-sm mr-1"
-                :href "https://github.com/bgzo/logseq-og/releases")
-
                (util/electron?)
                (ui/button
                 (if update-pending? (t :settings-page/checking) (t :settings-page/check-for-updates))
