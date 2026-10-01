@@ -111,6 +111,59 @@
   (->> (get-all-namespace-relation repo)
        (map second)))
 
+(def namespace-relations-query
+  "Datalog query of all pages that have a namespace parent, used by
+  `get-all-namespace-relations` and the namespaces section in the left sidebar."
+  '[:find ?page-name ?parent-name ?original-name ?parent-original-name ?journal?
+    :where
+    [?page :block/namespace ?e]
+    [?page :block/name ?page-name]
+    [?e :block/name ?parent-name]
+    [(get-else $ ?page :block/original-name ?page-name) ?original-name]
+    [(get-else $ ?e :block/original-name ?parent-name) ?parent-original-name]
+    [(get-else $ ?page :block/journal? false) ?journal?]])
+
+(defn get-all-namespace-relations
+  "Return [page-name parent-name original-name parent-original-name journal?]
+  tuples for all pages that have a namespace parent."
+  [repo]
+  (d/q namespace-relations-query (conn/get-db repo)))
+
+(defn get-namespace-forest
+  "Build the global namespace hierarchy from `get-all-namespace-relations`.
+
+  Journal pages are filtered out, while their namespace pages like `journals`
+  and `journals/2026` are kept. Returns a vector of nested maps
+  {:name :original-name :children}, sorted by name."
+  [relations]
+  (let [journal-names (->> relations
+                           (keep (fn [[page-name _ _ _ journal?]]
+                                   (when journal? page-name)))
+                           set)
+        child-names (set (map first relations))
+        by-parent (group-by second relations)
+        original-names (reduce (fn [acc [page-name _ original-name _ _]]
+                                 (assoc acc page-name original-name))
+                               {}
+                               relations)
+        original-names (reduce (fn [acc [_ parent-name _ parent-original-name _]]
+                                 (assoc acc parent-name parent-original-name))
+                               original-names
+                               relations)
+        roots (->> (keys by-parent)
+                   (remove child-names)
+                   (remove journal-names)
+                   sort)
+        build (fn build [name]
+                {:name name
+                 :original-name (get original-names name)
+                 :children (->> (get by-parent name)
+                                (map first)
+                                (remove journal-names)
+                                (sort)
+                                (mapv build))})]
+    (mapv build roots)))
+
 (defn get-pages
   [repo]
   (->> (d/q
