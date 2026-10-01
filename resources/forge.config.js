@@ -16,7 +16,7 @@ const notarize = Boolean(
 const packagerConfig = {
   name: 'Logseq-OG',
   icon: './icons/logseq_big_sur.icns',
-  buildVersion: "92",
+  buildVersion: "93",
   appBundleId: "com.logseq.logseq-og",
   protocols: [
     {
@@ -118,8 +118,8 @@ module.exports = {
       name: '@electron-forge/publisher-github',
       config: {
         repository: {
-          owner: 'logseq',
-          name: 'og'
+          owner: 'bgzo',
+          name: 'logseq-og'
         },
         prerelease: true
       }

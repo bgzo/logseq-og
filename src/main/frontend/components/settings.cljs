@@ -68,7 +68,7 @@
                (ui/button
                 (t :settings-page/check-for-updates)
                 :class "text-sm mr-1"
-                :href "https://apps.apple.com/app/logseq/id1601013908")
+                :href "https://github.com/bgzo/logseq-og/releases")
 
                (util/electron?)
                (ui/button

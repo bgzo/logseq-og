@@ -136,7 +136,7 @@
                 (.once autoUpdater "update-downloaded"
                        new-version-downloaded-cb))))
 
-          (debug "Skip remote version [ahead of pre-release]" remote-version))))))
+          (debug "Skip remote version (not newer)" remote-version))))))
 
 (defn init-updater
   [{:keys [repo ^js _win] :as opts}]
