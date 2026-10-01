@@ -27,6 +27,51 @@
   (is (= ["b/c" "b/d"]
          (map :block/name (model/get-namespace-pages test-helper/test-db "b")))))
 
+(deftest get-all-namespace-relations
+  (load-test-files [{:file/path "pages/a.b.c.md"
+                     :file/content "foo"}
+                    {:file/path "pages/a.b.d.md"
+                     :file/content "bar"}])
+
+  (is (= #{["a/b" "a" false]
+           ["a/b/c" "a/b" false]
+           ["a/b/d" "a/b" false]}
+         (set (map (juxt first second #(nth % 4))
+                   (model/get-all-namespace-relations test-helper/test-db))))))
+
+(deftest get-namespace-forest
+  (is (= [{:name "a"
+           :original-name "A"
+           :children [{:name "a/b"
+                       :original-name "A/B"
+                       :children [{:name "a/b/c"
+                                   :original-name "A/B/C"
+                                   :children []}]}]}]
+         (model/get-namespace-forest
+          [["a/b" "a" "A/B" "A" false]
+           ["a/b/c" "a/b" "A/B/C" "A/B" false]]))
+      "Nested namespaces are kept with their original names")
+
+  (is (= [{:name "journals"
+           :original-name "Journals"
+           :children [{:name "journals/2026"
+                       :original-name "journals/2026"
+                       :children [{:name "journals/2026/09"
+                                   :original-name "journals/2026/09"
+                                   :children []}]}]}]
+         (model/get-namespace-forest
+          [["journals/2026" "journals" "journals/2026" "Journals" false]
+           ["journals/2026/09" "journals/2026" "journals/2026/09" "journals/2026" false]
+           ["journals/2026/09/15" "journals/2026/09" "journals/2026/09/15" "journals/2026/09" true]]))
+      "Journal pages are filtered out while intermediate namespace pages are kept")
+
+  (is (= [{:name "2026"
+           :original-name "2026"
+           :children []}]
+         (model/get-namespace-forest
+          [["2026/09/15" "2026" "2026/09/15" "2026" true]]))
+      "Namespace pages whose children are all journals are kept"))
+
 (deftest get-page-namespace-routes
   (load-test-files [{:file/path "pages/a.b.c.md"
                      :file/content "foo"}
