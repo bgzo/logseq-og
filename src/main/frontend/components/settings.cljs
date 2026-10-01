@@ -62,13 +62,7 @@
                (ui/button
                 (t :settings-page/check-for-updates)
                 :class "text-sm mr-1"
-                :href "https://github.com/logseq/og/releases")
-
-               (mobile-util/native-ios?)
-               (ui/button
-                (t :settings-page/check-for-updates)
-                :class "text-sm mr-1"
-                :href "https://apps.apple.com/app/logseq/id1601013908")
+                :href "https://github.com/bgzo/logseq-og/releases")
 
                (util/electron?)
                (ui/button
@@ -85,7 +79,7 @@
          :on-click (fn []
                      (notification/show! [:div "Current Revision: "
                                           [:a {:target "_blank"
-                                               :href (str "https://github.com/logseq/logseq/commit/" config/revision)}
+                                               :href (str "https://github.com/bgzo/logseq-og/commit/" config/revision)}
                                            config/revision]]
                                          :info
                                          false))}
@@ -118,7 +112,7 @@
            [:a.link
             {:on-click
              (fn [e]
-               (js/window.apis.openExternal "https://github.com/logseq/og/releases")
+               (js/window.apis.openExternal "https://github.com/bgzo/logseq-og/releases")
                (util/stop e))}
             svg/external-link " release channel"]])])]))
 

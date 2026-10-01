@@ -126,7 +126,7 @@
                  (. semver lt electron-version remote-version))
 
            ;; start auto updater
-          (when (<= (second (string/split remote-version ".")) 10) ; file version should be locked at 0.10.*
+          (do
             (debug "Found remote version" remote-version)
             (when (or mac? win32?)
               (debug "forward update to autoUpdater")
@@ -136,7 +136,7 @@
                 (.once autoUpdater "update-downloaded"
                        new-version-downloaded-cb))))
 
-          (debug "Skip remote version [ahead of pre-release]" remote-version))))))
+          (debug "Skip remote version (not newer)" remote-version))))))
 
 (defn init-updater
   [{:keys [repo ^js _win] :as opts}]
