@@ -149,11 +149,14 @@ jobs:
           key: opencode-${{ runner.os }}-${{ runner.arch }}-${{ steps.version.outputs.version }}
       - name: Install opencode
         if: steps.cache.outputs.cache-hit != 'true'
+        # 安装必须有时限：curl 默认无最大时长，挂起会吃掉 attempt 与门禁的余量
+        timeout-minutes: 5
         env:
           PINNED_VERSION: ${{ steps.version.outputs.version }}
         run: |
+          set -o pipefail
           # 版本始终固定（查询失败时为 OPENCODE_FALLBACK_VERSION）
-          curl -fsSL https://opencode.ai/install | bash -s -- --version "${PINNED_VERSION}"
+          curl -fsSL --max-time 120 --retry 2 --retry-delay 2 https://opencode.ai/install | bash -s -- --version "${PINNED_VERSION}"
       - name: Add opencode to PATH
         run: echo "$HOME/.opencode/bin" >> "$GITHUB_PATH"
       # provider 卡死/网络抖动时最多损失一次尝试的时长，失败后自动进入第二次。
