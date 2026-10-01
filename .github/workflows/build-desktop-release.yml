@@ -18,7 +18,7 @@ on:
       git-ref:
         description: "Release Git Ref (Which branch or tag to build?)"
         required: true
-        default: "version/file"
+        default: "main"
       is-draft:
         description: 'Draft Release? (Beta/Release only, Nightly will always be a non-draft)'
         type: boolean
@@ -40,10 +40,10 @@ on:
         required: true
         default: true
       build-android:
-        description: 'Build Android App'
+        description: 'Build Android App (requires Android signing secrets)'
         type: boolean
         required: true
-        default: true
+        default: false
   # schedule: # Every workday at the 2 P.M. (UTC) we run a scheduled nightly build
   #   - cron: '0 14 * * MON-FRI'
 
@@ -138,7 +138,7 @@ jobs:
 
       - name: Update APP Version
         run: |
-          sed -i 's/"version": "0.0.1"/"version": "${{ steps.ref.outputs.version }}"/g' ./package.json
+          sed -i 's/"version": "[^"]*"/"version": "${{ steps.ref.outputs.version }}"/g' ./package.json
         working-directory: ./static
 
       - name: Display Package.json
@@ -326,6 +326,11 @@ jobs:
   build-windows:
     runs-on: windows-latest
     needs: [ compile-cljs ]
+    # Only used to decide whether the code signing step below can run.
+    env:
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
     steps:
       - name: Download The Static Asset
         uses: actions/download-artifact@v4
@@ -370,6 +375,7 @@ jobs:
           mv static\out\make\wix\x64\Logseq*.msi           builds\Logseq-OG-win-x64-${{ steps.ref.outputs.version }}.msi
 
       - name: Sign
+        if: ${{ env.AZURE_TENANT_ID != '' }}
         uses: azure/trusted-signing-action@v0.5.9
         with:
           azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -459,6 +465,7 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID_EMAIL }}
           APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_SIGN_IDENTITY: ${{ secrets.APPLE_SIGN_IDENTITY }}
 
       - name: Save x64 artifacts
         run: |
@@ -536,6 +543,7 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID_EMAIL }}
           APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_SIGN_IDENTITY: ${{ secrets.APPLE_SIGN_IDENTITY }}
 
       - name: Save arm64 artifacts
         run: |
@@ -563,8 +571,11 @@ jobs:
       SENTRY_AUTH_TOKEN: "${{ secrets.SENTRY_AUTH_TOKEN }}"
 
   nightly-release:
-    if: ${{ github.event_name == 'schedule' || github.event.inputs.build-target == 'nightly' }}
+    # !failure() so a skipped build-android job doesn't skip the release
+    if: ${{ !cancelled() && !failure() && (github.event_name == 'schedule' || github.event.inputs.build-target == 'nightly') }}
     needs: [ build-macos-x64, build-macos-arm64, build-linux-x64, build-linux-arm64, build-android, e2e-test ]
+    permissions:
+      contents: write
     runs-on: ubuntu-22.04
     steps:
       - name: Download MacOS x64 Artifacts
@@ -608,7 +619,7 @@ jobs:
           sha256sum *-darwin-* > SHA256SUMS.txt
           sha256sum *-win-* >> SHA256SUMS.txt
           sha256sum *-linux-* >> SHA256SUMS.txt
-          sha256sum *.apk >> SHA256SUMS.txt
+          if ls *.apk >/dev/null 2>&1; then sha256sum *.apk >> SHA256SUMS.txt; fi
           cat SHA256SUMS.txt
 
       - name: List files
@@ -636,8 +647,11 @@ jobs:
             ./*.apk
 
   release:
-    if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.build-target == 'beta' || github.event.inputs.build-target == 'release') }}
+    # !failure() so a skipped build-android job doesn't skip the release
+    if: ${{ !cancelled() && !failure() && github.event_name == 'workflow_dispatch' && (github.event.inputs.build-target == 'beta' || github.event.inputs.build-target == 'release') }}
     needs: [ build-macos-x64, build-macos-arm64, build-linux-x64, build-linux-arm64, build-android, e2e-test ]
+    permissions:
+      contents: write
     runs-on: ubuntu-22.04
     steps:
       - name: Download MacOS x64 Artifacts
@@ -695,7 +709,7 @@ jobs:
           sha256sum *-darwin-* > SHA256SUMS.txt
           sha256sum *-win-* >> SHA256SUMS.txt
           sha256sum *-linux-* >> SHA256SUMS.txt
-          sha256sum *.apk >> SHA256SUMS.txt
+          if ls *.apk >/dev/null 2>&1; then sha256sum *.apk >> SHA256SUMS.txt; fi
           sha256sum RELEASES >> SHA256SUMS.txt
           cat SHA256SUMS.txt
 

@@ -1,33 +1,53 @@
 const path = require('path')
 const fs = require('fs')
 
+// macOS code signing and notarization are opt-in: set APPLE_SIGN_IDENTITY
+// (plus APPLE_ID / APPLE_ID_PASSWORD / APPLE_TEAM_ID for notarization) to
+// enable them. Without an Apple developer identity builds stay unsigned
+// instead of failing, which keeps forks and local builds working.
+const signIdentity = process.env['APPLE_SIGN_IDENTITY']
+const notarize = Boolean(
+  signIdentity &&
+  process.env['APPLE_ID'] &&
+  process.env['APPLE_ID_PASSWORD'] &&
+  process.env['APPLE_TEAM_ID']
+)
+
+const packagerConfig = {
+  name: 'Logseq-OG',
+  icon: './icons/logseq_big_sur.icns',
+  buildVersion: "92",
+  appBundleId: "com.logseq.logseq-og",
+  protocols: [
+    {
+      "protocol": "logseq-og",
+      "name": "logseq-og",
+      "schemes": "logseq-og"
+    }
+  ],
+}
+
+if (signIdentity) {
+  packagerConfig.osxSign = {
+    identity: signIdentity,
+    'hardened-runtime': true,
+    entitlements: 'entitlements.plist',
+    'entitlements-inherit': 'entitlements.plist',
+    'signature-flags': 'library'
+  }
+}
+
+if (notarize) {
+  packagerConfig.osxNotarize = {
+    tool: 'notarytool',
+    appleId: process.env['APPLE_ID'],
+    appleIdPassword: process.env['APPLE_ID_PASSWORD'],
+    teamId: process.env['APPLE_TEAM_ID']
+  }
+}
+
 module.exports = {
-  packagerConfig: {
-    name: 'Logseq-OG',
-    icon: './icons/logseq_big_sur.icns',
-    buildVersion: "92",
-    appBundleId: "com.logseq.logseq-og",
-    protocols: [
-      {
-        "protocol": "logseq-og",
-        "name": "logseq-og",
-        "schemes": "logseq-og"
-      }
-    ],
-    osxSign: {
-      identity: 'Developer ID Application: Logseq Inc. (K378MFWK59)',
-      'hardened-runtime': true,
-      entitlements: 'entitlements.plist',
-      'entitlements-inherit': 'entitlements.plist',
-      'signature-flags': 'library'
-    },
-    osxNotarize: {
-      tool: 'notarytool',
-      appleId: process.env['APPLE_ID'],
-      appleIdPassword: process.env['APPLE_ID_PASSWORD'],
-      teamId: process.env['APPLE_TEAM_ID']
-    },
-  },
+  packagerConfig,
   makers: [
     {
       'name': '@electron-forge/maker-squirrel',
