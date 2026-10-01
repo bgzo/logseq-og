@@ -1,8 +1,8 @@
 name: PR Labeler
 on:
   pull_request_target:
-    # opened/reopened 打初始标签；synchronize 在 PR 推新提交（含改分支名后的推送）时刷新，
-    # 该 action 幂等，重复执行安全
+    # opened/reopened 打初始标签；synchronize 在 PR 推新提交时补打（该 action 幂等，
+    # 已存在的标签不会重复添加，但也不会移除旧标签，改名残留需手动清理）
     types: [opened, synchronize, reopened]
 
 # Adding labels to a PR requires pull-requests: write; creating missing
@@ -17,7 +17,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # 固定到 v5.0.0 的完整 commit SHA：pull_request_target 下持有写权限，
-      # 可变 tag 可被上游 force-move 后劫持；后续更新由 Dependabot 负责
+      # 可变 tag 可被上游 force-move 后劫持；后续更新由 Dependabot 负责。
+      # 注意：该 action 按 PR head ref 读取 .github/pr-labeler.yml，fork PR 读不到
+      # 本仓库配置时会回退到内置默认（feature/fix/chore），属已知上游行为
       - uses: TimonVS/pr-labeler-action@f9c084306ce8b3f488a8f3ee1ccedc6da131d1af # v5.0.0
         with:
           # optional, .github/pr-labeler.yml is the default value
