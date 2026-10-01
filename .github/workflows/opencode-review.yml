@@ -8,9 +8,11 @@ jobs:
   opencode-review:
     if: github.event.pull_request.user.login == 'bgzo' && !github.event.pull_request.draft
     runs-on: ubuntu-latest
-    # 两次尝试（最长 16 + 11 分钟）加初始化开销：最坏路径也留有余量，保证双超时时
-    # 仍能走到显式的门禁校验步骤，而不是被 job 上限中途取消；正常一次 2-10 分钟完成
-    timeout-minutes: 35
+    # 两次尝试（最长 30 + 20 分钟）加初始化开销：最坏路径也留有余量，保证双超时时
+    # 仍能走到显式的门禁校验步骤，而不是被 job 上限中途取消；正常一次 2-10 分钟完成。
+    # 窗口调大是因为大型 PR（2000+ 行）在 16 分钟内读不完文件就被掐断，门禁只会看到
+    # 一条未完成的过程评论；这里还是同一套审查，只是给足读 diff 的时间。
+    timeout-minutes: 55
     # 同一 PR 连续推送时，取消旧的审查，避免重复评论与配额浪费
     concurrency:
       group: opencode-review-${{ github.event.pull_request.number }}
@@ -159,7 +161,7 @@ jobs:
       - name: Run opencode review (attempt 1)
         id: review_attempt_1
         continue-on-error: true
-        timeout-minutes: 16
+        timeout-minutes: 30
         run: opencode github run
       # attempt 1 失败时可能已经发出过评论，但评论有两种：真正的审查结论（带
       # `结论：` 签名）与上游 handler 的「失败通报」评论。守卫只认前者，并且必须
@@ -190,7 +192,7 @@ jobs:
         id: review_attempt_2
         if: steps.review_attempt_1.outcome == 'failure' && steps.verdict.outputs.found != 'true'
         continue-on-error: true
-        timeout-minutes: 11
+        timeout-minutes: 20
         run: opencode github run
       # 门禁：本次 run 必须产出一条带结论签名且绑定本 run 的审查评论；无论 attempt
       # 路径如何（重复评论被跳过、守卫查询失败、两次尝试均失败）都以此为准，避免静默放过。
