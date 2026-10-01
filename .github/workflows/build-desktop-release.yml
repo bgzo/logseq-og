@@ -26,11 +26,6 @@ on:
         type: boolean
         required: true
         default: false
-      is-pre-release:
-        description: 'Pre Release? (prereleases are skipped by the update feed; Beta only)'
-        type: boolean
-        required: true
-        default: true
       enable-file-sync-production:
         description: 'File sync production mode'
         type: boolean
@@ -637,7 +632,7 @@ jobs:
           tag_name: nightly
           name: 'Desktop/Android APP Nightly Release $$'
           draft: false
-          prerelease: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.is-pre-release) || (github.event_name == 'schedule')}}
+          prerelease: true
           body: |
             This is a nightly release of the Logseq OG desktop app.
             It's unstable compared to the official releases, **use it with caution**!
@@ -726,7 +721,9 @@ jobs:
           name: ${{ github.event.inputs.build-target == 'beta' && format('Desktop/Android APP {0} (Beta Testing)', steps.ref.outputs.version) || format('Desktop/Android APP {0}', steps.ref.outputs.version) }}
           body: "TODO: Fill this changelog. Sorry for the inconvenience!"
           draft: ${{ github.event.inputs.is-draft }}
-          prerelease: ${{ github.event.inputs.build-target == 'beta' && github.event.inputs.is-pre-release || false }}
+          # Beta releases are always marked prerelease so they stay out of the
+          # update feed and never reach stable users.
+          prerelease: ${{ github.event.inputs.build-target == 'beta' }}
           files: |
             ./VERSION
             ./SHA256SUMS.txt
