@@ -303,7 +303,10 @@
      enabled?
      #(let [value (not enabled?)]
         (state/set-state! [:electron/user-cfgs :feature/enable-backup?] value)
-        (ipc/ipc :userAppCfgs :feature/enable-backup? value))
+        ;; Re-read user configs after persisting so a failed write cannot
+        ;; leave the toggle out of sync with the main process.
+        (p/then (ipc/ipc :userAppCfgs :feature/enable-backup? value)
+                (fn [_] (state/load-app-user-cfgs true))))
      [:span.text-sm.opacity-50 (t :settings-page/enable-backup-files-desc)])))
 
 (rum/defc app-auto-update-row < rum/reactive [t]

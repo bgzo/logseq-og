@@ -32,11 +32,15 @@
       "Map values get merged across configs"))
 
 (deftest get-backup-enabled?
-  (testing "backups are enabled when the user config is unset"
-    (with-redefs [state/sub (constantly nil)]
-      (is (true? (state/get-backup-enabled?)))))
-  (testing "an explicit user config wins over the default"
-    (with-redefs [state/sub (constantly true)]
-      (is (true? (state/get-backup-enabled?))))
-    (with-redefs [state/sub (constantly false)]
-      (is (false? (state/get-backup-enabled?))))))
+  (let [original (:electron/user-cfgs @state/state)]
+    (try
+      (testing "backups are enabled when the user config is unset"
+        (state/set-state! :electron/user-cfgs nil)
+        (is (true? (state/get-backup-enabled?))))
+      (testing "an explicit user config wins over the default"
+        (state/set-state! [:electron/user-cfgs :feature/enable-backup?] true)
+        (is (true? (state/get-backup-enabled?)))
+        (state/set-state! [:electron/user-cfgs :feature/enable-backup?] false)
+        (is (false? (state/get-backup-enabled?))))
+      (finally
+        (state/set-state! :electron/user-cfgs original)))))
