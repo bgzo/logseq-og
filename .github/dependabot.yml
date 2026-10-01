@@ -1,0 +1,8 @@
+version: 2
+updates:
+  # 跟踪 workflow 里按 commit SHA 固定的第三方 action（例如 pr-labeler 的 v5.0.0），
+  # 缺失这个配置时 SHA pin 不会自动获得更新
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
