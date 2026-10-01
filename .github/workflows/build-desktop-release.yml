@@ -19,16 +19,18 @@ on:
         description: "Release Git Ref (Which branch or tag to build?)"
         required: true
         default: "main"
+      # update.electronjs.org skips draft and prerelease releases, so the
+      # defaults must produce a published release for the updater to see it.
       is-draft:
-        description: 'Draft Release? (Beta/Release only, Nightly will always be a non-draft)'
+        description: 'Draft Release? (must be published for the update feed to see it)'
         type: boolean
         required: true
-        default: true
+        default: false
       is-pre-release:
-        description: 'Pre Release? (labeled as "PreRelease")'
+        description: 'Pre Release? (skipped by the update feed; Beta/Release only)'
         type: boolean
         required: true
-        default: true
+        default: false
       enable-file-sync-production:
         description: 'File sync production mode'
         type: boolean

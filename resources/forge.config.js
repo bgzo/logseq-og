@@ -121,7 +121,8 @@ module.exports = {
           owner: 'bgzo',
           name: 'logseq-og'
         },
-        prerelease: true
+        // update.electronjs.org ignores prerelease releases
+        prerelease: false
       }
     }
   ]
