@@ -71,8 +71,13 @@
   (let [result (.diff_main Diff old new)]
     (some (fn [a] (= -1 (first a))) result)))
 
+(defn backup-enabled?
+  []
+  (not (false? (cfgs/get-item :feature/enable-backup?))))
+
 (defmethod handle :backupDbFile [_window [_ repo path db-content new-content]]
-  (when (and (string? db-content)
+  (when (and (backup-enabled?)
+             (string? db-content)
              (string? new-content)
              (string-some-deleted? db-content new-content))
     (logger/info ::backup "backup db file" path)
