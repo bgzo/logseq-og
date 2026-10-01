@@ -248,7 +248,8 @@
            (p/let [result (<write-file-with-utf8 fpath content)
                    mtime (-> (js->clj stat :keywordize-keys true)
                              :mtime)]
-             (when-not contents-matched?
+             (when (and (not contents-matched?)
+                        (state/get-backup-enabled?))
                (backup-file repo-dir :backup-dir fpath disk-content))
              (db/set-file-last-modified-at! repo rpath mtime)
              (db/set-file-content! repo rpath content)

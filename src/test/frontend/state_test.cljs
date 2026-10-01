@@ -1,5 +1,5 @@
 (ns frontend.state-test
-  (:require [clojure.test :refer [deftest is]]
+  (:require [clojure.test :refer [deftest is testing]]
             [frontend.state :as state]))
 
 (deftest merge-configs
@@ -30,3 +30,17 @@
                               {:shortcuts {:ui/toggle-brackets "t b"}}
                               {:shortcuts {:editor/up ["ctrl+p" "up"]}}))
       "Map values get merged across configs"))
+
+(deftest get-backup-enabled?
+  (let [original (:electron/user-cfgs @state/state)]
+    (try
+      (testing "backups are enabled when the user config is unset"
+        (state/set-state! :electron/user-cfgs nil)
+        (is (true? (state/get-backup-enabled?))))
+      (testing "an explicit user config wins over the default"
+        (state/set-state! [:electron/user-cfgs :feature/enable-backup?] true)
+        (is (true? (state/get-backup-enabled?)))
+        (state/set-state! [:electron/user-cfgs :feature/enable-backup?] false)
+        (is (false? (state/get-backup-enabled?))))
+      (finally
+        (state/set-state! :electron/user-cfgs original)))))

@@ -78,15 +78,16 @@
 (defn backup-file!
   "Backup db content to bak directory"
   [repo-url path db-content content]
-  (cond
-    (util/electron?)
-    (ipc/ipc "backupDbFile" repo-url path db-content content)
+  (when (state/get-backup-enabled?)
+    (cond
+      (util/electron?)
+      (ipc/ipc "backupDbFile" repo-url path db-content content)
 
-    (mobile-util/native-platform?)
-    (capacitor-fs/backup-file-handle-changed! repo-url path db-content)
+      (mobile-util/native-platform?)
+      (capacitor-fs/backup-file-handle-changed! repo-url path db-content)
 
-    :else
-    nil))
+      :else
+      nil)))
 
 (defn- detect-deprecations
   [path content]
