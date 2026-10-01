@@ -59,47 +59,12 @@ jobs:
         uses: actions/checkout@v6
         with:
           persist-credentials: false
-      # 配置写到全局目录（~/.config/opencode/opencode.json），不要写进仓库目录：
-      # opencode 结束时会对「变脏的工作区」执行 git add/commit/push，写进仓库会把自己提交上去
-      - name: Configure opencode CI permissions (deny rm / git commit / git push)
-        run: |
-          mkdir -p "$HOME/.config/opencode"
-          cat > "$HOME/.config/opencode/opencode.json" <<'EOF'
-          {
-            "$schema": "https://opencode.ai/config.json",
-            "permission": {
-              "bash": {
-                "*": "allow",
-                "rm *": "deny",
-                "rmdir *": "deny",
-                "shred *": "deny",
-                "truncate *": "deny",
-                "git commit": "deny",
-                "git commit *": "deny",
-                "git * commit*": "deny",
-                "*git commit*": "deny",
-                "git push": "deny",
-                "git push *": "deny",
-                "git * push*": "deny",
-                "*git push*": "deny"
-              },
-              "read": "allow",
-              "edit": "deny",
-              "glob": "allow",
-              "grep": "allow",
-              "list": "allow",
-              "task": "allow",
-              "external_directory": "allow",
-              "todowrite": "allow",
-              "question": "deny",
-              "webfetch": "allow",
-              "websearch": "allow",
-              "lsp": "allow",
-              "doom_loop": "allow",
-              "skill": "allow"
-            }
-          }
-          EOF
+      # deny 规则与只读 agent（default_agent=ci-readonly）由脚本统一写入全局配置
+      # （~/.config/opencode/opencode.json），不要写进仓库目录：opencode 结束时会对
+      # 「变脏的工作区」执行 git add/commit/push，写进仓库会把自己提交上去。
+      # 与 opencode-comment 共用同一脚本，避免安全策略漂移。
+      - name: Configure opencode CI permissions (read-only agent, deny rm / git commit / git push)
+        run: bash .github/scripts/configure-opencode-permissions.sh
       # opencode github run 会把工作区切到 PR 的 head 分支（日志中的
       # "Checking out local branch..."）。如果 head 分支不含本脚本（例如从旧基线
       # 拉出的分支），后面的门禁步骤会因 "No such file or directory" 误判失败。
@@ -155,8 +120,9 @@ jobs:
           PINNED_VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -o pipefail
-          # 版本始终固定（查询失败时为 OPENCODE_FALLBACK_VERSION）
-          curl -fsSL --max-time 120 --retry 2 --retry-delay 2 https://opencode.ai/install | bash -s -- --version "${PINNED_VERSION}"
+          # 版本始终固定（查询失败时为 OPENCODE_FALLBACK_VERSION）；
+          # --retry-max-time 把最坏重试总耗时（≤240s + 安装）压在 step 上限内
+          curl -fsSL --max-time 90 --retry 2 --retry-delay 2 --retry-max-time 240 https://opencode.ai/install | bash -s -- --version "${PINNED_VERSION}"
       - name: Add opencode to PATH
         run: echo "$HOME/.opencode/bin" >> "$GITHUB_PATH"
       # provider 卡死/网络抖动时最多损失一次尝试的时长，失败后自动进入第二次。
