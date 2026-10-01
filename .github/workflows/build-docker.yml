@@ -3,8 +3,6 @@ name: Build-Docker
 on:
   workflow_dispatch:
   workflow_call:
-  release:
-    types: [released]
 
 env:
   CLOJURE_VERSION: '1.11.1.1413'
