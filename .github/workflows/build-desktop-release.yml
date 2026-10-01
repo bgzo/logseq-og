@@ -324,7 +324,9 @@ jobs:
           path: builds
 
   build-windows:
-    runs-on: windows-latest
+    # windows-latest is on Visual Studio 18, which the bundled node-gyp can't
+    # detect yet; native modules (electron-deeplink) fail to build there.
+    runs-on: windows-2022
     needs: [ compile-cljs ]
     # Only used to decide whether the code signing step below can run.
     env:
@@ -573,7 +575,7 @@ jobs:
   nightly-release:
     # !failure() so a skipped build-android job doesn't skip the release
     if: ${{ !cancelled() && !failure() && (github.event_name == 'schedule' || github.event.inputs.build-target == 'nightly') }}
-    needs: [ build-macos-x64, build-macos-arm64, build-linux-x64, build-linux-arm64, build-android, e2e-test ]
+    needs: [ build-windows, build-macos-x64, build-macos-arm64, build-linux-x64, build-linux-arm64, build-android, e2e-test ]
     permissions:
       contents: write
     runs-on: ubuntu-22.04
@@ -649,7 +651,7 @@ jobs:
   release:
     # !failure() so a skipped build-android job doesn't skip the release
     if: ${{ !cancelled() && !failure() && github.event_name == 'workflow_dispatch' && (github.event.inputs.build-target == 'beta' || github.event.inputs.build-target == 'release') }}
-    needs: [ build-macos-x64, build-macos-arm64, build-linux-x64, build-linux-arm64, build-android, e2e-test ]
+    needs: [ build-windows, build-macos-x64, build-macos-arm64, build-linux-x64, build-linux-arm64, build-android, e2e-test ]
     permissions:
       contents: write
     runs-on: ubuntu-22.04
