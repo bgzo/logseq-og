@@ -45,4 +45,5 @@ Guidance for OpenCode sessions in this repo. Deeper background lives in `CODEBAS
 - Fork identity: use the `logseq-og` URL scheme (`frontend.util.url`), `~/.logseq-og` global dir, mobile appId `com.logseq.og`, and Electron bundle id `com.logseq.logseq-og` — don't reintroduce upstream `logseq://` / `~/.logseq` defaults.
 - App version lives in `src/main/frontend/version.cljs`; `scripts/get-pkg-version.js` and gulp's `electronMaker` derive from it.
 - No Clojure(Script) formatter is enforced and formatting is inconsistent; don't reformat unrelated code. PRs reject formatting/whitespace churn and drive-by dependency bumps (`CONTRIBUTING.md`).
+- PR and issue titles in English; bodies can be Chinese.
 - PR titles use prefixes: `chore`, `dev`, `enhance`, `feat`, `fix`, `test`.
