@@ -256,6 +256,8 @@
 
 (defn backup-db-file!
   [repo path db-content disk-content]
+  ;; Renderer-side short-circuit; the Electron main process checks
+  ;; :feature/enable-backup? again in its :backupDbFile handler as a fallback.
   (when (state/get-backup-enabled?)
     (cond
       (util/electron?)
