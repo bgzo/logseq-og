@@ -8,9 +8,9 @@ jobs:
   opencode-review:
     if: github.event.pull_request.user.login == 'bgzo' && !github.event.pull_request.draft
     runs-on: ubuntu-latest
-    # 两次尝试（最长 16 + 11 分钟）加初始化开销：最坏路径也留有余量，保证双超时时
+    # 两次尝试（最长 20 + 15 分钟）加初始化开销：最坏路径也留有余量，保证双超时时
     # 仍能走到显式的门禁校验步骤，而不是被 job 上限中途取消；正常一次 2-10 分钟完成
-    timeout-minutes: 35
+    timeout-minutes: 45
     # 同一 PR 连续推送时，取消旧的审查，避免重复评论与配额浪费
     concurrency:
       group: opencode-review-${{ github.event.pull_request.number }}
@@ -24,10 +24,10 @@ jobs:
     env:
       OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      MODEL: opencode-go/glm-5.3-flash
+      MODEL: opencode-go/mimo-v2.6-flash
       # 版本查询三连失败时的固定回退版本，保证任何路径下安装版本可复现
       OPENCODE_FALLBACK_VERSION: "1.18.33"
-      # 思考等级：glm-5.3-flash 支持 low/high/max
+      # 思考等级：high（MiMo-V2.6-Flash 为推理模型；models.dev 暂未暴露 effort 档位）
       VARIANT: high
       # 用 workflow 的 GITHUB_TOKEN（contents: read），不再用 OpenCode App token：
       # App token 有写权限，能绕开下面的 bash deny 规则直接 commit/push
@@ -159,7 +159,7 @@ jobs:
       - name: Run opencode review (attempt 1)
         id: review_attempt_1
         continue-on-error: true
-        timeout-minutes: 16
+        timeout-minutes: 20
         run: opencode github run
       # attempt 1 失败时可能已经发出过评论，但评论有两种：真正的审查结论（带
       # `结论：` 签名）与上游 handler 的「失败通报」评论。守卫只认前者，并且必须
@@ -190,7 +190,7 @@ jobs:
         id: review_attempt_2
         if: steps.review_attempt_1.outcome == 'failure' && steps.verdict.outputs.found != 'true'
         continue-on-error: true
-        timeout-minutes: 11
+        timeout-minutes: 15
         run: opencode github run
       # 门禁：本次 run 必须产出一条带结论签名且绑定本 run 的审查评论；无论 attempt
       # 路径如何（重复评论被跳过、守卫查询失败、两次尝试均失败）都以此为准，避免静默放过。
