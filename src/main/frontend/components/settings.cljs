@@ -85,7 +85,7 @@
          :on-click (fn []
                      (notification/show! [:div "Current Revision: "
                                           [:a {:target "_blank"
-                                               :href (str "https://github.com/logseq/logseq/commit/" config/revision)}
+                                               :href (str "https://github.com/bgzo/logseq-og/commit/" config/revision)}
                                            config/revision]]
                                          :info
                                          false))}
