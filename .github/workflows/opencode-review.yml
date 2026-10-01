@@ -27,8 +27,9 @@ jobs:
       MODEL: opencode-go/mimo-v2.6-flash
       # 版本查询三连失败时的固定回退版本，保证任何路径下安装版本可复现
       OPENCODE_FALLBACK_VERSION: "1.18.33"
-      # 思考等级：high（MiMo-V2.6-Flash 为推理模型；models.dev 暂未暴露 effort 档位）
-      VARIANT: high
+      # 思考等级：MiMo-V2.6-Flash 目前在 models.dev 没有 effort 档位，指定 high 会报
+      # VariantUnavailableError；先注释掉，等上游补齐可选项后再取消注释
+      # VARIANT: high
       # 用 workflow 的 GITHUB_TOKEN（contents: read），不再用 OpenCode App token：
       # App token 有写权限，能绕开下面的 bash deny 规则直接 commit/push
       USE_GITHUB_TOKEN: "true"
