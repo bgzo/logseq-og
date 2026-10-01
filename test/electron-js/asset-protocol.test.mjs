@@ -22,11 +22,14 @@
  * containment, not from absence. That is the same confusion the original bug
  * turned on.
  *
- * Needs the Electron binary. `yarn install` primes it; from Electron 42 the npm
- * package downloads on first use rather than in a postinstall script, so a
- * sandboxed or offline environment must prime the cache explicitly. The suite
- * SKIPS (it does not fail, and never downloads) when no binary is present.
- * Point it at an unpacked dist with ELECTRON_OVERRIDE_DIST_PATH.
+ * Needs the Electron binary and, on Linux, a display server. `yarn install`
+ * primes the binary on Electron < 42; from Electron 42 the npm package downloads
+ * on first use rather than in a postinstall script, so a sandboxed or offline
+ * environment must prime the cache explicitly. The suite SKIPS (it does not
+ * fail, and never downloads) when either is missing -- a headless Linux runner
+ * with a primed binary otherwise fails for an environment reason and stops
+ * guarding anything. Point it at an unpacked dist with
+ * ELECTRON_OVERRIDE_DIST_PATH.
  */
 import { describe, test, before, after } from 'node:test'
 import assert from 'node:assert/strict'
@@ -67,7 +70,18 @@ function findElectron () {
 
 const electronBinary = findElectron()
 
-describe('assets:// scheme contract', { skip: electronBinary ? false : 'no Electron binary available (see suite header)' }, () => {
+// Electron needs a display server to create a window on Linux. Without one the
+// fixture never reaches its result line, so skip rather than fail the run for an
+// environment reason. macOS and Windows runners have a usable display.
+const hasDisplay =
+  process.platform !== 'linux' || Boolean(process.env.DISPLAY || process.env.WAYLAND_DISPLAY)
+const skipReason = !electronBinary
+  ? 'no Electron binary available (see suite header)'
+  : !hasDisplay
+    ? 'no display available for Electron on this Linux host'
+    : false
+
+describe('assets:// scheme contract', { skip: skipReason }, () => {
   let tmp
   let result
 
