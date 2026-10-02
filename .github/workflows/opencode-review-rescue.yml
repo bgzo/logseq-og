@@ -29,12 +29,17 @@ on:
         default: ""
 
 permissions:
+  # 列出 / 下载快照制品需要 actions: read；显式 permissions 块下未声明的权限为 none，
+  # 缺少它时 artifact API 会 403，救援链在第一步就会挂掉
+  actions: read
   contents: read
   pull-requests: write
   issues: write
 
 concurrency:
-  # 同一会话重复触发时取消前一次，避免收尾评论打架
+  # 同一会话重复触发时取消前一次，避免收尾评论打架。工作流仅维护者可触发，
+  # session id 由第一个 step 校验格式；即使输入不规范，最坏也只是 group 名不同，
+  # 不影响取消语义，无实际影响。
   group: opencode-review-rescue-${{ inputs.session_id }}
   cancel-in-progress: true
 
@@ -119,8 +124,10 @@ jobs:
           cp .github/scripts/opencode_review_turn.sh "$RUNNER_TEMP/review/opencode_review_turn.sh"
       # 再签出快照记录的提交：import 会把会话的项目 / 目录重写到当前工作区，
       # 上下文与当初一致时收尾结果最可信（收尾 agent 无工具，不会改文件）。
+      # head 可能已被 force-push 掉而取不到；失败不阻断救援，评论里已注明基线 SHA。
       - name: Checkout the reviewed commit
         if: steps.snapshot.outputs.head_sha != ''
+        continue-on-error: true
         uses: actions/checkout@v6
         with:
           ref: ${{ steps.snapshot.outputs.head_sha }}

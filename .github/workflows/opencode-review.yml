@@ -195,6 +195,15 @@ jobs:
           git reset --hard HEAD >/dev/null 2>&1 || true
           git clean -fd >/dev/null 2>&1 || true
 
+          # 迟到的结论可能已经出现（attempt 1 的进程在超时后才把评论补发出去）：
+          # 先查一次，避免白跑 25 分钟；回合结束后的二次检查仍然保留。
+          FOUND=""
+          FOUND=$(bash "$RUNNER_TEMP/review/review_verdict.sh" "${PR_NUMBER}" "${RUN_STARTED_AT}") || FOUND=""
+          if [ -n "${FOUND}" ]; then
+            echo "A verdict comment already exists (id=${FOUND}); skipping attempt 2."
+            exit 0
+          fi
+
           if [ -z "${SESSION_ID}" ]; then
             # 没有可续的会话：退回一次完整审查（handler 自己发评论），
             # 并尝试从日志里抓 session id 给后续轮次 / 快照使用
@@ -262,6 +271,9 @@ jobs:
           git clean -fd >/dev/null 2>&1 || true
 
           if [ -z "${SESSION_ID}" ]; then
+            # 没有可续的会话、只剩一轮 15 分钟：完整审查跑不完，用降级 prompt 抢一个
+            # 「P0/P1 + 未审核到位 + 结论」。兜底不保证成功，但比完整审查有机会。
+            export PROMPT='时间预算只剩 15 分钟。快速审查本 PR：跳过全面探索，优先检查高风险区域（安全、正确性、CI 权限与超时逻辑），只报告 P0/P1。如果无法完整覆盖，必须单独写「未审核到位」小节列出未覆盖范围；全部覆盖则写「无」。最后一行必须恰好是 结论：LGTM 或 结论：BLOCK；不要写计划或状态说明。'
             opencode github run 2>&1 | tee "$RUNNER_TEMP/attempt3.log"
             SID=$(grep -oE 'opencode session ses_[A-Za-z0-9]+' "$RUNNER_TEMP/attempt3.log" | head -1 | awk '{print $NF}')
             echo "session_id=${SID}" >> "$GITHUB_OUTPUT"
@@ -305,6 +317,24 @@ jobs:
             gh pr comment "${PR_NUMBER}" --body-file "$RUNNER_TEMP/attempt3-salvage.md"
           fi
           exit 1
+      # attempt 3 可能通过续跑回合发结论，也可能在无 session 的降级路径里由 handler
+      # 直接发；这里统一查一次，快照只对「确实没结论」的 run 生成，避免无谓制品。
+      - name: Check whether attempt 3 posted a review verdict
+        id: verdict3
+        if: always()
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_STARTED_AT: ${{ steps.version.outputs.started_at }}
+        run: |
+          if FOUND=$(bash "$RUNNER_TEMP/review/review_verdict.sh" "${PR_NUMBER}" "${RUN_STARTED_AT}"); then
+            if [ -n "${FOUND}" ]; then
+              echo "found=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "found=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "found=unknown" >> "$GITHUB_OUTPUT"
+          fi
       # 三步都结束后统一解析可用的 session id：写进 step summary，失败 run 的页面上
       # 能直接看到，供手动触发 opencode-review-rescue 收尾。
       - name: Resolve the review session id
@@ -329,7 +359,7 @@ jobs:
       # opencode-review-rescue 用同一版本 import 后即可续跑收尾。成功路径不用快照。
       - name: Stage the session snapshot (rescue artifact)
         id: snapshot
-        if: always() && steps.session.outputs.session_id != '' && steps.verdict.outputs.found != 'true' && steps.verdict2.outputs.found != 'true'
+        if: always() && steps.session.outputs.session_id != '' && steps.verdict.outputs.found != 'true' && steps.verdict2.outputs.found != 'true' && steps.verdict3.outputs.found != 'true'
         env:
           SESSION_ID: ${{ steps.session.outputs.session_id }}
           PR_NUMBER: ${{ github.event.pull_request.number }}

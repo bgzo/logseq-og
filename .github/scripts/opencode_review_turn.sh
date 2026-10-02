@@ -114,10 +114,20 @@ try:
             texts[message_id].append(text)
 except FileNotFoundError:
     pass
+except Exception as exc:
+    print(f"failed to parse {path}: {exc}", file=sys.stderr)
+    raise
 
 if order:
     sys.stdout.write("\n\n".join(texts[order[-1]]))
 PY
+parse_status=$?
+
+# 解析失败不能和「确实没有结论」混为一谈：明确指出是事件流处理出了问题
+if [ "${parse_status}" -ne 0 ]; then
+  echo "failed to parse the opencode event stream (python exit ${parse_status}); events file: ${events_file}" >&2
+  exit 1
+fi
 
 if [ -s "${text_file}" ]; then
   echo "extracted $(wc -c < "${text_file}" | tr -d ' ') bytes of assistant text"
