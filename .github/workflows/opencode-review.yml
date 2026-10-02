@@ -130,7 +130,10 @@ jobs:
         id: review_attempt_1
         continue-on-error: true
         timeout-minutes: 20
-        run: opencode github run
+        run: |
+          set -o pipefail
+          # stdout 落盘：attempt 2 需要从日志里取出 session id 来续跑同一会话
+          opencode github run 2>&1 | tee "$RUNNER_TEMP/attempt1.log"
       # attempt 1 失败时可能已经发出过评论，但评论有两种：真正的审查结论（带
       # `结论：` 签名）与上游 handler 的「失败通报」评论。守卫只认前者，并且必须
       # 绑定到本 run（评论页脚含 /actions/runs/<run id>），避免被并发取消的旧 run
@@ -151,17 +154,91 @@ jobs:
           else
             echo "found=unknown" >> "$GITHUB_OUTPUT"
           fi
+      # attempt 1 被超时中断时，它的会话上下文仍保存在本地存储里。记下 session id，
+      # attempt 2 直接续这个会话出结论，而不是从零重读 diff 和仓库。
+      - name: Extract the attempt 1 session id (for resume)
+        id: attempt1_session
+        if: steps.review_attempt_1.outcome == 'failure' && steps.verdict.outputs.found != 'true'
+        run: |
+          SESSION_ID=""
+          if [ -f "$RUNNER_TEMP/attempt1.log" ]; then
+            SESSION_ID=$(grep -oE 'opencode session ses_[A-Za-z0-9]+' "$RUNNER_TEMP/attempt1.log" | head -1 | awk '{print $NF}')
+          fi
+          echo "session_id=${SESSION_ID}" >> "$GITHUB_OUTPUT"
+          if [ -n "${SESSION_ID}" ]; then
+            echo "Captured attempt 1 session: ${SESSION_ID}"
+          else
+            echo "::warning::Could not capture the attempt 1 session id; attempt 2 starts a fresh review."
+          fi
       - name: Reset workspace before the retry
         if: steps.review_attempt_1.outcome == 'failure' && steps.verdict.outputs.found != 'true'
         run: |
           git reset --hard HEAD
           git clean -fd
-      - name: Run opencode review (attempt 2)
+      # 第二轮优先「续 attempt 1 的会话直接收尾」：探索成本只付一次，省掉重读
+      # diff/仓库的十几分钟；拿不到 session id 时才退回一次完整审查。
+      - name: "Run opencode review (attempt 2: resume attempt 1)"
         id: review_attempt_2
         if: steps.review_attempt_1.outcome == 'failure' && steps.verdict.outputs.found != 'true'
         continue-on-error: true
         timeout-minutes: 15
-        run: opencode github run
+        env:
+          SESSION_ID: ${{ steps.attempt1_session.outputs.session_id }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_STARTED_AT: ${{ steps.version.outputs.started_at }}
+        run: |
+          set -o pipefail
+          FINALIZE_PROMPT='不要再用任何工具。基于本会话已有的审查工作，现在直接输出完整的最终审查（按原要求：P0/P1 为阻塞、P2 为非阻塞；每条含 文件:行号/问题/原因/修复建议；简体中文），最后一行必须恰好是 `结论：LGTM` 或 `结论：BLOCK`，且不要以计划或状态说明结尾。'
+
+          if [ -z "${SESSION_ID}" ]; then
+            # 没有可续的会话：退回一次完整审查（handler 自己发评论）
+            opencode github run
+            exit $?
+          fi
+
+          # 续 attempt 1 的会话：--format json 的事件流里取最后一段 text 作为评论正文
+          opencode run --session "${SESSION_ID}" --model "${MODEL}" --auto --format json "${FINALIZE_PROMPT}" \
+            > "$RUNNER_TEMP/attempt2.json" 2> "$RUNNER_TEMP/attempt2.err" || true
+
+          python3 - "$RUNNER_TEMP/attempt2.json" > "$RUNNER_TEMP/attempt2.md" <<'PY'
+          import json
+          import sys
+
+          text = ""
+          with open(sys.argv[1], encoding="utf-8", errors="replace") as events:
+              for line in events:
+                  line = line.strip()
+                  if not line.startswith("{"):
+                      continue
+                  try:
+                      event = json.loads(line)
+                  except json.JSONDecodeError:
+                      continue
+                  if event.get("type") == "text":
+                      candidate = (event.get("part") or {}).get("text") or ""
+                      if candidate.strip():
+                          text = candidate
+          sys.stdout.write(text)
+          PY
+
+          if ! grep -q '结论：' "$RUNNER_TEMP/attempt2.md"; then
+            echo "::warning::The resumed session did not produce a 结论： signature; failing this attempt."
+            echo "--- attempt 2 output ---"
+            cat "$RUNNER_TEMP/attempt2.md"
+            echo "--- attempt 2 stderr ---"
+            cat "$RUNNER_TEMP/attempt2.err" || true
+            exit 1
+          fi
+
+          # 若本 run 已有一条迟到结论（例如 attempt 1 的进程在超时后补发），不要重复评论
+          if FOUND=$(bash "$RUNNER_TEMP/review/review_verdict.sh" "${PR_NUMBER}" "${RUN_STARTED_AT}") && [ -n "${FOUND}" ]; then
+            echo "A verdict comment already exists (id=${FOUND}); skipping the duplicate."
+            exit 0
+          fi
+
+          # 页脚必须带上本 run 链接，门禁（review_verdict.sh）据此识别
+          printf '\n\n[github run](%s/%s/actions/runs/%s)\n' "${GITHUB_SERVER_URL}" "${GITHUB_REPOSITORY}" "${GITHUB_RUN_ID}" >> "$RUNNER_TEMP/attempt2.md"
+          gh pr comment "${PR_NUMBER}" --body-file "$RUNNER_TEMP/attempt2.md"
       # 门禁：本次 run 必须产出一条带结论签名且绑定本 run 的审查评论；无论 attempt
       # 路径如何（重复评论被跳过、守卫查询失败、两次尝试均失败）都以此为准，避免静默放过。
       - name: Verify a review verdict was posted
