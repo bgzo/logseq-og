@@ -80,6 +80,8 @@ turn_status=$?
 
 if [ "${turn_status}" -ne 0 ] && [ "${turn_status}" -ne 124 ] && [ "${turn_status}" -ne 137 ]; then
   echo "opencode run exited with ${turn_status}; salvaging any text already emitted" >&2
+  # 尤其需要看 provider 的原始报错（鉴权失败、限流、variant 不可用等）
+  tail -n 20 "${events_file}.err" >&2 || true
 fi
 
 # 事件流里 text part 只在完成时（time.end）输出一次；取最后一条「含文本的助手
@@ -126,6 +128,7 @@ parse_status=$?
 # 解析失败不能和「确实没有结论」混为一谈：明确指出是事件流处理出了问题
 if [ "${parse_status}" -ne 0 ]; then
   echo "failed to parse the opencode event stream (python exit ${parse_status}); events file: ${events_file}" >&2
+  tail -n 20 "${events_file}.err" >&2 || true
   exit 1
 fi
 

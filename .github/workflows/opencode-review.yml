@@ -210,6 +210,13 @@ jobs:
             opencode github run 2>&1 | tee "$RUNNER_TEMP/attempt2.log"
             SID=$(grep -oE 'opencode session ses_[A-Za-z0-9]+' "$RUNNER_TEMP/attempt2.log" | head -1 | awk '{print $NF}')
             echo "session_id=${SID}" >> "$GITHUB_OUTPUT"
+            # 兜底审查期间 attempt 1 被超时干掉的处理进程仍可能补发迟到结论：
+            # 无法回滚已发出的评论，但记一条 warning 便于解释重复评论的来源。
+            FOUND=""
+            FOUND=$(bash "$RUNNER_TEMP/review/review_verdict.sh" "${PR_NUMBER}" "${RUN_STARTED_AT}") || FOUND=""
+            if [ -n "${FOUND}" ]; then
+              echo "::warning::A verdict comment (id=${FOUND}) already exists after the fallback run; duplicate comments may exist but the gate accepts any of them."
+            fi
             exit 0
           fi
 
@@ -344,6 +351,7 @@ jobs:
           S1: ${{ steps.attempt1_session.outputs.session_id }}
           S2: ${{ steps.review_attempt_2.outputs.session_id }}
           S3: ${{ steps.review_attempt_3.outputs.session_id }}
+          FOUND3: ${{ steps.verdict3.outputs.found }}
         run: |
           SESSION_ID="${S1:-${S2:-${S3:-}}}"
           echo "session_id=${SESSION_ID}" >> "$GITHUB_OUTPUT"
@@ -353,6 +361,14 @@ jobs:
               echo ""
               echo "- session id: \`${SESSION_ID}\`"
               echo "- 若本次审查未能输出结论，可运行 **opencode-review-rescue** 工作流，填入 session_id（pr_number 可留空自动识别）强制收尾。"
+            } >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${FOUND3}" != "true" ]; then
+            # 没有 session id 时 rescue 无法工作（没有可 import 的会话）：只能重跑一轮
+            {
+              echo "### opencode review session"
+              echo ""
+              echo "- 未能从日志里捕获 session id（handler 可能没有真正启动），无法使用 opencode-review-rescue 收尾。"
+              echo "- 请推送新提交，或关闭后重新打开 PR，触发一轮新的完整审查。"
             } >> "$GITHUB_STEP_SUMMARY"
           fi
       # 失败路径才会走到这里：把会话导出成 JSON + 元数据作为制品（保留 14 天），
@@ -423,7 +439,11 @@ jobs:
               exit 0
             fi
 
-            echo "::error::No review verdict was posted by this run. session_id=${SESSION_ID:-unknown}. Use the opencode-review-rescue workflow with this session id to force a conclusion." >&2
+            if [ -n "${SESSION_ID}" ]; then
+              echo "::error::No review verdict was posted by this run. session_id=${SESSION_ID}. Use the opencode-review-rescue workflow with this session id to force a conclusion." >&2
+            else
+              echo "::error::No review verdict was posted and no opencode session id could be captured (the handler may not have started). Push a new commit or close and reopen the PR to trigger a fresh full review." >&2
+            fi
             exit 1
           fi
 
