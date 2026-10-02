@@ -27,7 +27,7 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
-      MODEL: opencode-go/mimo-v2.6-flash
+      MODEL: opencode-go/glm-5.3-flash
       # 用 workflow 的 GITHUB_TOKEN（contents: read），不再用 OpenCode App token：
       # App token 有写权限，能绕开 bash deny 规则直接 commit/push
       USE_GITHUB_TOKEN: "true"
