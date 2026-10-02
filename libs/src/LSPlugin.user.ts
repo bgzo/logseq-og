@@ -602,6 +602,7 @@ export class LSPluginUser
 
       if (signal?.aborted) throw abortError()
 
+      let dispatched = false
       try {
         const options: any = {
           url,
@@ -616,27 +617,41 @@ export class LSPluginUser
         if (signal) {
           // `abortable` makes _request resolve a task rather than the payload,
           // which is the only handle the host gives us onto an in-flight request.
+          dispatched = true
           const task: any = await this.Request._request({ ...options, abortable: true })
-          const onAbort = () => task.abort?.()
+          // Adding an abort listener to an already-aborted signal never fires,
+          // so the race below would hang forever. Re-check after the await.
+          if (signal.aborted) {
+            task.abort?.()
+            throw abortError()
+          }
+          let onAbort: () => void = () => {}
+          const aborted = new Promise<never>((_, reject) => {
+            onAbort = () => {
+              task.abort?.()
+              reject(abortError())
+            }
+          })
           signal.addEventListener('abort', onAbort, { once: true })
           try {
-            res = await Promise.race([
-              task.promise,
-              new Promise((_, reject) => {
-                signal.addEventListener('abort', () => reject(abortError()), { once: true })
-              })
-            ])
+            res = await Promise.race([task.promise, aborted])
           } finally {
             signal.removeEventListener('abort', onAbort)
           }
         } else {
+          dispatched = true
           res = await this.Request._request(options)
         }
 
         // A host without includeResponse support resolves the bare body; there is
-        // no status or headers to rebuild from, so let the native path handle it.
+        // no status or headers to rebuild from. Only retry natively for a request
+        // that is safe to send twice -- the first attempt DID reach the host.
         if (!res || typeof res !== 'object' || typeof res.status !== 'number') {
-          return nativeFetch(input, init)
+          const method = String(init?.method ?? req?.method ?? 'GET').toUpperCase()
+          if (method === 'GET' || method === 'HEAD') return nativeFetch(input, init)
+          throw new Error(
+            `[lsp] the host did not return a reconstructable response for ${method} ${url}; refusing to resend it`
+          )
         }
 
         let payload: Uint8Array | null = null
@@ -667,9 +682,12 @@ export class LSPluginUser
         // An abort is the caller's own decision -- never retry it on the native
         // path, which would send the request a second time.
         if (signal?.aborted || (e as any)?.name === 'AbortError') throw e
-        // Otherwise never turn a request the native path could have served into a
-        // hard failure -- fall back rather than propagating a bridge-side error.
-        return nativeFetch(input, init)
+        // Only a failure BEFORE the request was handed to the host may retry
+        // natively. Once dispatched, the request may already have reached the
+        // server, and a native retry would silently duplicate a non-idempotent
+        // one (POST/PUT/PATCH), so let the error surface.
+        if (!dispatched) return nativeFetch(input, init)
+        throw e
       }
     }
 

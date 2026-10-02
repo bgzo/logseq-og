@@ -83,7 +83,14 @@ jobs:
           node static/tests.js
 
       - name: Run Electron main-process tests
-        run: yarn test:electron-js
+        # The asset-protocol suite boots a real Electron, which needs a display
+        # on Linux; without xvfb it skips entirely and the core contract
+        # ("an in-root asset is fetchable, an out-of-root one is not") is never
+        # exercised in CI.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+          xvfb-run -a yarn test:electron-js
 
   lint:
     runs-on: ubuntu-22.04

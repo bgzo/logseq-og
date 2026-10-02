@@ -676,7 +676,18 @@ class PluginLocal extends EventEmitter<
       dirPathInstalled = path.join(DIR_PLUGINS, dirPathInstalled)
     }
     const tag = new Date().getDay()
-    const sdkPathRoot = await getSDKPathRoot()
+    const sdkPathRoot = IS_DEV ? await getSDKPathRoot() : ''
+    // The entry document is served over lsp://, so a raw filesystem path in a
+    // script src cannot resolve: the app's own static root is served by the
+    // same handler (js/* under __dirname), and the host renderer's origin is
+    // the only place that route is reachable from. Web keeps the CDN -- this
+    // SDK cannot tell web from desktop any other way than the renderer
+    // protocol. IS_DEV keeps the SDK dev server.
+    const sdkScriptSrc = IS_DEV
+      ? `${sdkPathRoot}/lsplugin.user.js?v=${tag}`
+      : typeof window !== 'undefined' && window.location.protocol === 'lsp:'
+        ? `${window.location.origin}/js/lsplugin.user.js?v=${tag}`
+        : `https://cdn.jsdelivr.net/npm/@logseq/libs/dist/lsplugin.user.min.js?v=${tag}`
     const entryPath = await invokeHostExportedApi(
       tmp_file_method,
       `${this._id}_index.html`,
@@ -685,12 +696,7 @@ class PluginLocal extends EventEmitter<
   <head>
     <meta charset="UTF-8">
     <title>logseq plugin entry</title>
-    ${
-        IS_DEV
-          ? `<script src="${sdkPathRoot}/lsplugin.user.js?v=${tag}"></script>`
-          : `<script src="https://cdn.jsdelivr.net/npm/@logseq/libs/dist/lsplugin.user.min.js?v=${tag}"></script>`
-      }
-    
+    <script src="${sdkScriptSrc}"></script>
   </head>
   <body>
   <div id="app"></div>
@@ -727,7 +733,17 @@ class PluginLocal extends EventEmitter<
         options.url = path.join(this._localRoot, options.url)
         // file:// for native
         if (!options.url.startsWith('file:')) {
-          options.url = 'assets://' + options.url
+          // assets:// is a non-standard scheme, so Chromium parses the URL
+          // verbatim: a win32 path (C:\Users\...) has backslashes and no
+          // leading slash, which makes the drive letter the URL host (or fails
+          // the parse outright), and the theme never loads. Build the same
+          // shape the main-process handler normalizes: forward slashes and a
+          // leading slash before a drive.
+          let assetPath = options.url.replace(/\\/g, '/')
+          if (/^[a-zA-Z]:\//.test(assetPath)) {
+            assetPath = '/' + assetPath
+          }
+          options.url = 'assets://' + assetPath
         }
       }
 
