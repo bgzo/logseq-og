@@ -211,6 +211,9 @@ jobs:
             opencode github run 2>&1 | tee "$RUNNER_TEMP/attempt2.log" || FALLBACK_STATUS=$?
             SID=$(grep -oE 'opencode session ses_[A-Za-z0-9]+' "$RUNNER_TEMP/attempt2.log" | head -1 | awk '{print $NF}')
             echo "session_id=${SID}" >> "$GITHUB_OUTPUT"
+            if [ -z "${SID}" ]; then
+              echo "::warning::Could not capture the session id from the fallback run log; attempt 3 starts a fresh review."
+            fi
             # 兜底审查期间 attempt 1 被超时干掉的处理进程仍可能补发迟到结论：
             # 无法回滚已发出的评论，但记一条 warning 便于解释重复评论的来源。
             FOUND=""
@@ -291,6 +294,9 @@ jobs:
             opencode github run 2>&1 | tee "$RUNNER_TEMP/attempt3.log" || FALLBACK_STATUS=$?
             SID=$(grep -oE 'opencode session ses_[A-Za-z0-9]+' "$RUNNER_TEMP/attempt3.log" | head -1 | awk '{print $NF}')
             echo "session_id=${SID}" >> "$GITHUB_OUTPUT"
+            if [ -z "${SID}" ]; then
+              echo "::warning::Could not capture the session id from the fallback run log; no rescue snapshot will be available."
+            fi
             # 兜底期间 attempt 1/2 的迟到结论可能补发；无法回滚，仅记 warning
             FOUND=""
             FOUND=$(bash "$RUNNER_TEMP/review/review_verdict.sh" "${PR_NUMBER}" "${RUN_STARTED_AT}") || FOUND=""
@@ -393,6 +399,10 @@ jobs:
       - name: Stage the session snapshot (rescue artifact)
         id: snapshot
         if: always() && steps.session.outputs.session_id != '' && steps.verdict.outputs.found != 'true' && steps.verdict2.outputs.found != 'true' && steps.verdict3.outputs.found != 'true'
+        # export 是本地存储读取，正常秒级完成；限时避免挂起吃掉门禁前的余量。
+        # continue-on-error：快照只是救援素材，成败由门禁决定，不能吞掉门禁的失败信息。
+        timeout-minutes: 3
+        continue-on-error: true
         env:
           SESSION_ID: ${{ steps.session.outputs.session_id }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -445,6 +455,7 @@ jobs:
       # 门禁：本次 run 必须产出一条带结论签名且绑定本 run 的审查评论；无论 attempt
       # 路径如何（重复评论被跳过、守卫查询失败、三轮均失败）都以此为准，避免静默放过。
       - name: Verify a review verdict was posted
+        if: always()
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           RUN_STARTED_AT: ${{ steps.version.outputs.started_at }}

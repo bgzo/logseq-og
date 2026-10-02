@@ -56,11 +56,15 @@ esac
 : "${MODEL:?MODEL is required}"
 turn_timeout="${TURN_TIMEOUT:-${default_timeout}}"
 
-# 提示语里的预算必须和实际 timeout 一致；调用方约定传 <n>m，h/s 也做了兜底。
+# 提示语里的预算必须和实际 timeout 一致：只接受 <分钟>m / <小时>h，
+# 其它形态（1h30m、1.5h、90s 等）直接快速失败，避免算出无意义甚至错误的预算。
+if [[ ! "${turn_timeout}" =~ ^[0-9]+[mh]$ ]]; then
+  echo "unsupported TURN_TIMEOUT '${turn_timeout}': expected <minutes>m or <hours>h" >&2
+  exit 2
+fi
 case "${turn_timeout}" in
   *h) turn_budget_label="$((${turn_timeout%h} * 60)) 分钟" ;;
   *m) turn_budget_label="${turn_timeout%m} 分钟" ;;
-  *) turn_budget_label="${turn_timeout}" ;;
 esac
 prompt="${prompt//__BUDGET__/${turn_budget_label}}"
 
