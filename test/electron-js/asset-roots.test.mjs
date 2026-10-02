@@ -147,12 +147,26 @@ describe('resolveAssetsSchemeUrl', () => {
     assert.equal(resolveAssetsSchemeUrl(undefined), null)
   })
 
-  test('resolves a Windows drive path, which arrives as /C:/...', () => {
+  test('resolves the assets:///C%3A/... URL the renderer now builds on Windows', () => {
+    // The renderer emits assets:///C:/... (ensure-url-path); Chromium hands the
+    // handler /C:/..., which must be stripped to the drive form before
+    // resolution. Seed and candidate go through the same platform resolution
+    // here; the discriminating part is the leading-slash strip.
     clearAssetRoots()
-    seedAssetRoots(['/C:/Users/nils/graph'])
+    seedAssetRoots(['C:/Users/nils/graph'])
     assert.equal(
-      resolveAssetsSchemeUrl('assets:///C:/Users/nils/graph/assets/a.pdf', { win32: false }),
-      path.resolve('/C:/Users/nils/graph/assets/a.pdf')
+      resolveAssetsSchemeUrl('assets:///C%3A/Users/nils/graph/assets/a.pdf', { win32: true }),
+      path.resolve('C:/Users/nils/graph/assets/a.pdf')
+    )
+  })
+
+  test('resolves a drive path that arrives without the leading slash', () => {
+    // editor/make-asset-url and the SDK build assets://C%3A/... directly.
+    clearAssetRoots()
+    seedAssetRoots(['C:/Users/nils/graph'])
+    assert.equal(
+      resolveAssetsSchemeUrl('assets://C%3A/Users/nils/graph/assets/a.pdf', { win32: true }),
+      path.resolve('C:/Users/nils/graph/assets/a.pdf')
     )
   })
 
@@ -263,12 +277,21 @@ describe('normalizeAssetCandidate', () => {
     )
   })
 
-  test('keeps leading-slash forms unchanged', () => {
+  test('keeps a POSIX absolute path unchanged', () => {
+    assert.equal(normalizeAssetCandidate('/srv/graph/a.pdf', false), '/srv/graph/a.pdf')
+  })
+
+  test('strips a leading slash before a drive, which path.win32.resolve would root', () => {
+    // /C:/... must become C:/..., or path.win32.resolve returns `\C:\...`
+    // (a rooted path on the current drive) and no seeded root can ever match.
     assert.equal(
       normalizeAssetCandidate('/C:/Users/nils/graph/a.pdf', true),
-      '/C:/Users/nils/graph/a.pdf'
+      'C:/Users/nils/graph/a.pdf'
     )
-    assert.equal(normalizeAssetCandidate('/srv/graph/a.pdf', false), '/srv/graph/a.pdf')
+    assert.equal(
+      normalizeAssetCandidate('/C:\\Users\\nils\\graph\\a.pdf', true),
+      'C:\\Users\\nils\\graph\\a.pdf'
+    )
   })
 
   test('restores the lost leading slash of a UNC path on Windows', () => {

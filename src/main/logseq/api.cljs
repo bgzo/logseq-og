@@ -29,6 +29,7 @@
             [frontend.handler.common.plugin :as plugin-common-handler]
             [frontend.modules.outliner.core :as outliner]
             [frontend.modules.outliner.tree :as outliner-tree]
+            [frontend.plugin.preferences :as plugin-preferences]
             [frontend.handler.command-palette :as palette-handler]
             [frontend.modules.shortcut.core :as st]
             [frontend.modules.shortcut.config :as shortcut-config]
@@ -317,7 +318,7 @@
             _    (fs/create-if-not-exists repo nil path)
             json (fs/read-file nil path)
             json (if (string/blank? json) "{}" json)]
-      (js/JSON.parse json))))
+      (plugin-preferences/migrate-user-preferences (js/JSON.parse json)))))
 
 (def ^:export save_user_preferences
   (fn [^js data]
@@ -325,7 +326,9 @@
       (p/let [repo ""
               path (plugin-handler/get-ls-dotdir-root)
               path (util/node-path.join path "preferences.json")]
-        (fs/write-plain-text-file! repo nil path (js/JSON.stringify data nil 2) {:skip-compare? true})))))
+        (fs/write-plain-text-file! repo nil path
+                                   (js/JSON.stringify (plugin-preferences/migrate-user-preferences data) nil 2)
+                                   {:skip-compare? true})))))
 
 (def ^:export load_plugin_user_settings
   ;; results [path data]

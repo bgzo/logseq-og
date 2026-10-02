@@ -361,8 +361,14 @@ const ASSETS_SCHEME_PREFIX = 'assets://'
 export const normalizeAssetCandidate = (candidate, win32) => {
   if (typeof candidate !== 'string' || candidate === '') return null
   const isWindows = win32 !== undefined ? win32 : process.platform === 'win32'
-  const isDrive = /^[a-zA-Z]:[\\/]/.test(candidate)
-  if (candidate.startsWith('/') || isDrive) return candidate
+  // Strip an optional leading slash in front of a drive path. Chromium may hand
+  // the renderer's assets:///C:/... to us as /C:/..., and path.win32.resolve
+  // turns that leading slash into a rooted path on the CURRENT drive
+  // (`\C:\Users\...`): C: stops being a drive letter and the result can never
+  // match a seeded `C:\Users\...` root. Both forms must land on `C:\...`.
+  const drive = candidate.match(/^\/?([a-zA-Z]:[\\/].*)$/)
+  if (drive) return drive[1]
+  if (candidate.startsWith('/')) return candidate
   return isWindows ? '//' + candidate : candidate
 }
 
