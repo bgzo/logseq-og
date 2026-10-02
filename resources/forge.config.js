@@ -16,7 +16,7 @@ const notarize = Boolean(
 const packagerConfig = {
   name: 'Logseq-OG',
   icon: './icons/logseq_big_sur.icns',
-  buildVersion: "93",
+  buildVersion: "94",
   appBundleId: "com.logseq.logseq-og",
   protocols: [
     {
