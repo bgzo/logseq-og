@@ -28,7 +28,10 @@ const consoleLogWatcher = (msg: ConsoleMessage) => {
   // List of error messages to ignore
   const ignoreErrors = [
     /net/,
-    /^Error with Permissions-Policy header:/
+    /^Error with Permissions-Policy header:/,
+    // CI runners have no GPU; on Electron 38 Chromium logs this when the
+    // whiteboard falls back from WebGPU to software WebGL. Harmless noise.
+    /^Failed to create WebGPU Context Provider/
   ];
 
   // If the text matches any of the ignoreErrors, return early
