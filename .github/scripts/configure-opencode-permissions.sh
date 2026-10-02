@@ -51,6 +51,28 @@ cat > "$HOME/.config/opencode/opencode.json" <<'EOF'
         "edit": false,
         "patch": false
       }
+    },
+    "ci-finalize": {
+      "description": "Final-turn CI agent: no tools at all, must summarize the review from session history",
+      "mode": "primary",
+      "steps": 1,
+      "prompt": "You are in the final turn of a timed review: produce the review verdict from the session history only. You have no tools; never attempt a tool call, never read files and never run commands. Obey the user's finalization instruction and finish with a line exactly `结论：LGTM` or `结论：BLOCK`.",
+      "tools": {
+        "write": false,
+        "edit": false,
+        "patch": false,
+        "bash": false,
+        "read": false,
+        "glob": false,
+        "grep": false,
+        "list": false,
+        "task": false,
+        "webfetch": false,
+        "websearch": false,
+        "todowrite": false,
+        "lsp": false,
+        "skill": false
+      }
     }
   }
 }
