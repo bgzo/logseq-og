@@ -195,8 +195,14 @@ jobs:
             exit $?
           fi
 
-          # 续 attempt 1 的会话：--format json 的事件流里取最后一段 text 作为评论正文
-          opencode run --session "${SESSION_ID}" --model "${MODEL}" --auto --format json "${FINALIZE_PROMPT}" \
+          # 续 attempt 1 的会话：--format json 的事件流里取最后一段 text 作为评论正文。
+          # VARIANT 只被 handler 读取，opencode run 需要用 --variant 显式传入，否则收尾
+          # 会掉到默认推理档位；VARIANT 未设置时不传该参数。
+          VARIANT_OPT=()
+          if [ -n "${VARIANT:-}" ]; then
+            VARIANT_OPT=(--variant "${VARIANT}")
+          fi
+          opencode run --session "${SESSION_ID}" --model "${MODEL}" "${VARIANT_OPT[@]}" --auto --format json "${FINALIZE_PROMPT}" \
             > "$RUNNER_TEMP/attempt2.json" 2> "$RUNNER_TEMP/attempt2.err" || true
 
           python3 - "$RUNNER_TEMP/attempt2.json" > "$RUNNER_TEMP/attempt2.md" <<'PY'
