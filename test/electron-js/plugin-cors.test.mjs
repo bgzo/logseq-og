@@ -469,7 +469,16 @@ describe('compiled release output (guard)', () => {
     const s = await loadBuilt()
     if (!s) return
     if (!isPseudoNamed(s)) return
-    for (const name of ['onBeforeRequest', 'onHeadersReceived', 'responseHeaders', 'resourceType']) {
+    for (const name of [
+      'onBeforeRequest',
+      'onHeadersReceived',
+      'responseHeaders',
+      'resourceType',
+      // Read off details.frame when a plugin request is attributed. Renaming
+      // either leaves frameUrl empty and no request is ever relaxed.
+      'url',
+      'parent'
+    ]) {
       assert.ok(
         !new RegExp(`\\.\\$${name}\\$`).test(s),
         `${name} was renamed -- it needs an entry in externs.js, or the call fails ` +

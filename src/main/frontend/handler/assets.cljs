@@ -64,9 +64,25 @@
 
    assets:// is the app's own protocol, registered by the main process with
    supportFetchAPI + corsEnabled for exactly this, and contained to the graph
-   and alias directories (electron/utils.js ASSETS_SCHEME_PRIVILEGES)."
+   directories, the alias directories, and the plugin roots (a plugin theme is
+   served from the plugin's own directory -- electron/utils.js
+   ASSETS_SCHEME_PRIVILEGES and resolveWithinAnyRoot)."
   []
   (if (util/electron?) "assets:" "file:"))
+
+(defn- ensure-url-path
+  "Give a Windows drive path a leading slash before it goes after assets://.
+
+   `prepend-protocol` builds `assets://C:/...` otherwise, and for a non-standard
+   scheme Chromium reads the drive letter as the URL host (the colon does not
+   survive parsing). The main process then gets a path it cannot resolve and
+   refuses every local asset on Windows. POSIX paths already start with a slash."
+  [path]
+  (if (and (string? path)
+           (re-find #"^[a-zA-Z]:[\\/]" path)
+           (not (string/starts-with? path "/")))
+    (str "/" path)
+    path))
 
 (defn resolve-asset-real-path-url
   [repo rpath]
@@ -91,12 +107,13 @@
                                                  (second (get-alias-by-name (second (re-find #"^@([^\/]+)" rpath')))))
                                             (vector rpath')))))]
 
-                    (str "assets://" (string/replace rpath' (str "@" (:name alias)) (:dir alias)))
+                    (str "assets://" (ensure-url-path
+                                      (string/replace rpath' (str "@" (:name alias)) (:dir alias))))
 
                     (if has-schema?
                       (path/path-join graph-root rpath)
                       (path/prepend-protocol (local-asset-protocol)
-                                             (path/path-join graph-root rpath)))))]
+                                             (ensure-url-path (path/path-join graph-root rpath))))))]
         (convert-platform-protocol ret)))))
 
 (defn normalize-asset-resource-url
@@ -112,8 +129,9 @@
       (path/absolute? path)
       (if (boolean (re-find #"(?i)%[0-9a-f]{2}" path)) ;; has encoded chars?
         ;; Incoming path might be already URL encoded. from PDF assets
-        (path/prepend-protocol (local-asset-protocol) (gp-util/safe-decode-uri-component path))
-        (path/prepend-protocol (local-asset-protocol) path))
+        (path/prepend-protocol (local-asset-protocol)
+                               (ensure-url-path (gp-util/safe-decode-uri-component path)))
+        (path/prepend-protocol (local-asset-protocol) (ensure-url-path path)))
 
 
       :else ;; relative path or alias path

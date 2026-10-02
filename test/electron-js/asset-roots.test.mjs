@@ -20,7 +20,11 @@ import {
   seedAssetRoots,
   clearAssetRoots,
   assetRootCount,
-  resolveAssetsSchemeUrl
+  resolveAssetsSchemeUrl,
+  seedPluginRoots,
+  addPluginRoot,
+  clearPluginRoots,
+  normalizeAssetCandidate
 } from '../../src/electron/electron/utils.js'
 
 const GRAPH = path.resolve('/srv/graph')
@@ -202,5 +206,81 @@ describe('compiled release output (guard)', () => {
         `compiled assets:// privilege table is missing \`${key}:\` -- renamed by :advanced`
       )
     }
+  })
+})
+
+describe('plugin roots are assets:// roots', () => {
+  const PLUGIN = path.resolve('/home/nils/.logseq-og/plugins/demo-plugin')
+  const OTHER_PLUGIN = path.resolve('/home/nils/.logseq-og/plugins/other-plugin')
+
+  beforeEach(() => {
+    clearAssetRoots()
+    clearPluginRoots()
+  })
+
+  test('resolves a theme stylesheet inside a seeded plugin root', () => {
+    // SDK _loadConfigThemes injects a plugin theme as assets://<plugin-dir>/x.css,
+    // so the plugin roots the lsp:// route trusts must be asset roots too --
+    // otherwise every theme is refused with ERR_FILE_NOT_FOUND and fails silently.
+    seedPluginRoots([PLUGIN])
+    const theme = path.join(PLUGIN, 'theme.css')
+    assert.equal(resolveAssetsSchemeUrl('assets://' + theme), theme)
+  })
+
+  test('resolves a theme stylesheet inside a user-chosen plugin root', () => {
+    addPluginRoot(PLUGIN)
+    const theme = path.join(PLUGIN, 'theme.css')
+    assert.equal(resolveAssetsSchemeUrl('assets://' + theme), theme)
+  })
+
+  test('a seeded plugin root does not expose its siblings', () => {
+    seedPluginRoots([PLUGIN])
+    const sibling = path.join(OTHER_PLUGIN, 'theme.css')
+    assert.equal(resolveAssetsSchemeUrl('assets://' + sibling), null)
+  })
+
+  test('a traversal out of a plugin root is still refused', () => {
+    seedPluginRoots([PLUGIN])
+    assert.equal(
+      resolveAssetsSchemeUrl('assets://' + path.join(PLUGIN, '..', '..', 'secret.css')),
+      null
+    )
+  })
+})
+
+describe('normalizeAssetCandidate', () => {
+  test('leaves a drive path absolute instead of turning it into a UNC path', () => {
+    // assets://C:/... arrives without a leading slash. Prefixing '//' would make
+    // \\C:\..., which can never match a seeded C:\... root, so every Windows
+    // asset (PDF, image, alias) would be refused.
+    assert.equal(
+      normalizeAssetCandidate('C:/Users/nils/graph/a.pdf', true),
+      'C:/Users/nils/graph/a.pdf'
+    )
+    assert.equal(
+      normalizeAssetCandidate('C:\\Users\\nils\\graph\\a.pdf', true),
+      'C:\\Users\\nils\\graph\\a.pdf'
+    )
+  })
+
+  test('keeps leading-slash forms unchanged', () => {
+    assert.equal(
+      normalizeAssetCandidate('/C:/Users/nils/graph/a.pdf', true),
+      '/C:/Users/nils/graph/a.pdf'
+    )
+    assert.equal(normalizeAssetCandidate('/srv/graph/a.pdf', false), '/srv/graph/a.pdf')
+  })
+
+  test('restores the lost leading slash of a UNC path on Windows', () => {
+    assert.equal(normalizeAssetCandidate('server/share/a.pdf', true), '//server/share/a.pdf')
+  })
+
+  test('a relative path stays relative off-Windows', () => {
+    assert.equal(normalizeAssetCandidate('srv/graph/a.pdf', false), 'srv/graph/a.pdf')
+  })
+
+  test('refuses non-strings and empty strings', () => {
+    assert.equal(normalizeAssetCandidate('', true), null)
+    assert.equal(normalizeAssetCandidate(null, true), null)
   })
 })

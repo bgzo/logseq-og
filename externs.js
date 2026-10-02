@@ -129,6 +129,14 @@ dummy.responseHeaders = function() {};
 dummy.onBeforeRequest = function() {};
 dummy.resourceType = function() {};
 dummy.frame = function() {};
+// frame.url / frame.parent are read by the plugin-request tracker in utils.js
+// (installBeforeRequestTracker) to attribute a request to a plugin frame. A
+// renamed read there would make every attribution fail in release builds, so
+// the CORS relaxation would never apply. The default externs currently cover
+// both names, but they are listed explicitly so that a catalog change cannot
+// silently reintroduce the bug; the compiled-output guard asserts they survive.
+dummy.url = function() {};
+dummy.parent = function() {};
 dummy.velocityDecay = function() {};
 dummy.velocityDecay = function() {};
 dummy.updatePosition = function() {};

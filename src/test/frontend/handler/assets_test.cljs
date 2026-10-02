@@ -38,6 +38,15 @@
       #(is (= (str "assets://" graph-dir "/assets/a.pdf")
               (assets-handler/normalize-asset-resource-url (str graph-dir "/assets/a.pdf"))))))
 
+  (testing "a Windows drive path gets a leading slash before assets://"
+    ;; Without it `prepend-protocol` builds `assets://C:/...`, and Chromium reads
+    ;; the drive letter as the URL host for a non-standard scheme; the main
+    ;; process then refuses the path as out-of-root and every Windows asset
+    ;; (PDFs, images, aliases) fails. The handler decodes %3A back to ':'.
+    (with-electron
+      #(is (= "assets:///C%3A/Users/nils/Logseq/assets/a.pdf"
+              (assets-handler/normalize-asset-resource-url "C:\\Users\\nils\\Logseq\\assets\\a.pdf")))))
+
   (testing "a percent-encoded path stays encoded exactly once"
     ;; The URL stays percent-encoded, and the main process decodes it once
     ;; (js-utils/resolveAssetsSchemeUrl). The decode step inside

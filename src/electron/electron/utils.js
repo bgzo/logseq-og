@@ -318,15 +318,53 @@ export const assetRootCount = () => assetRoots.size
 const resolveWithinAnyRoot = (candidate) => {
   if (typeof candidate !== 'string' || candidate === '') return null
   const full = path.resolve(candidate)
+  const contained = (base) =>
+    full === base || full.startsWith(base + '/') || full.startsWith(base + '\\')
   for (const base of assetRoots) {
-    if (full === base || full.startsWith(base + '/') || full.startsWith(base + '\\')) {
-      return full
-    }
+    if (contained(base)) return full
+  }
+  // Plugin directories are asset roots too. A plugin theme is injected as
+  // assets://<plugin-dir>/<theme>.css (SDK _loadConfigThemes builds it from the
+  // plugin's own localRoot), so the same containment that guards the graph must
+  // admit the plugin roots -- otherwise every theme is refused with
+  // ERR_FILE_NOT_FOUND and fails silently. These are the SAME roots the lsp://
+  // external route trusts: preferences.json's externals, the dot-root plugins
+  // dir (seeded by electron.core), and the directory the user picked in the
+  // install dialog. A plugin frame already reads its own directory over lsp://,
+  // so admitting it here adds no reach.
+  for (const base of seededRoots) {
+    if (contained(base)) return full
+  }
+  for (const base of sessionRoots) {
+    if (contained(base)) return full
   }
   return null
 }
 
 const ASSETS_SCHEME_PREFIX = 'assets://'
+
+/**
+ * Normalize the path part of an assets:// URL to the absolute path it names.
+ *
+ * The renderer builds these with `prepend-protocol`, whose url-join drops a
+ * leading slash from a Windows drive path: `C:/Users/...` arrives as
+ * assets://C:/Users/... (no slash). That form must NOT be mistaken for a UNC
+ * path -- `'//' + candidate` turns it into `\\C:\Users\...`, which can never
+ * match a seeded `C:\Users\...` root, and Windows then refuses every graph asset
+ * (PDFs, images, alias files). Recognize the drive form and leave it alone.
+ * A UNC path that lost one slash to the scheme prefix (`server/share/...`) still
+ * gets it back.
+ *
+ * Exported so the shape decisions are unit-testable without a Windows host:
+ * `path.resolve` is platform-bound, but this predicate is not.
+ */
+export const normalizeAssetCandidate = (candidate, win32) => {
+  if (typeof candidate !== 'string' || candidate === '') return null
+  const isWindows = win32 !== undefined ? win32 : process.platform === 'win32'
+  const isDrive = /^[a-zA-Z]:[\\/]/.test(candidate)
+  if (candidate.startsWith('/') || isDrive) return candidate
+  return isWindows ? '//' + candidate : candidate
+}
 
 /**
  * Turn an assets:// URL into the absolute path it may be served from, or null
@@ -347,7 +385,7 @@ export const resolveAssetsSchemeUrl = (url, opts) => {
   // No unescaping step: the "/logseq__colon/" encoding this handler used to
   // undo lost its producer in fccce48c6 ("fix(windows): remove encoding assets
   // protocol path", Oct 2022) and the decode half was dead code from then on.
-  // A Windows path arrives as /C:/... and is handled below.
+  // A Windows path arrives as /C:/... or C:/... and is handled below.
   const raw = url.slice(ASSETS_SCHEME_PREFIX.length)
 
   let candidate
@@ -358,13 +396,8 @@ export const resolveAssetsSchemeUrl = (url, opts) => {
     return null
   }
 
-  // Unix absolute, or the /C:/... form Windows paths arrive in. A Windows UNC
-  // path lost one leading slash to the scheme prefix, so restore it.
-  const absolute = candidate.startsWith('/') || /^\/[a-zA-Z]:/.test(candidate)
-    ? candidate
-    : (win32 ? '//' + candidate : candidate)
-
-  return resolveWithinAnyRoot(absolute)
+  const absolute = normalizeAssetCandidate(candidate, win32)
+  return absolute ? resolveWithinAnyRoot(absolute) : null
 }
 
 // Only these are plugin frames. Note the main renderer is ALSO lsp://logseq.com

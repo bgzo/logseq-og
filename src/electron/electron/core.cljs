@@ -64,7 +64,7 @@
       (logseq-url-handler win parsed-url))))
 
 (defn- seed-external-plugin-roots!
-  "Tell the lsp:// handler which external plugin roots are legitimate.
+  "Tell the lsp:// handler and the assets:// handler which plugin roots are legitimate.
 
    The external route serves from a directory named IN THE URL, so containment
    alone cannot decide whether that directory may be read at all -- a URL naming
@@ -73,6 +73,12 @@
    the user installed, so it is the right source of truth for \"which roots may be
    served from\", and js-utils adds the dot-root tmp dir the SDK generates plugin
    entry documents into.
+
+   PLUGINS_ROOT is included because assets:// needs it: a plugin theme is
+   injected as assets://<plugin-dir>/<theme>.css built from the plugin's own
+   localRoot (SDK _loadConfigThemes), so dot-root themes are only servable when
+   the plugins dir is a known root. The same set backs the lsp:// external route,
+   where this directory is already plugin territory and adds no reach.
 
    Called at startup and again whenever the handler meets a root it does not
    recognise, so a plugin installed mid-session does not have to wait for a
@@ -86,7 +92,8 @@
                      (logger/warn ::seed-external-roots "could not read preferences.json" e)
                      nil))]
     (js-utils/seedPluginRoots
-     (js-utils/pluginRootsFromPreferences cfgs/dot-root json))))
+     (clj->js (concat [PLUGINS_ROOT]
+                      (js-utils/pluginRootsFromPreferences cfgs/dot-root json))))))
 
 (defn setup-interceptor! [^js app]
   (.setAsDefaultProtocolClient app LSP_SCHEME)

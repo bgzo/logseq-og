@@ -48,6 +48,13 @@ const SECRET_BYTES = Buffer.from('out-of-root secret\n')
 const STYLESHEET_CSS = Buffer.from(
   'body { --asset-protocol-probe: applied; background-image: url("bg.png"); }\n'
 )
+// A plugin theme lives in the plugin's own directory, which is NOT the graph
+// root. The regression this guards: the assets:// allowlist only knew graph and
+// alias roots, so the SDK's assets:// theme URL was refused and every theme
+// failed silently.
+const PLUGIN_THEME_CSS = Buffer.from(
+  'body { --asset-plugin-theme-probe: applied; background-image: url("bg-plugin.png"); }\n'
+)
 
 /**
  * Locate an Electron binary WITHOUT triggering a download. `require('electron')`
@@ -100,6 +107,16 @@ describe('assets:// scheme contract', { skip: skipReason }, () => {
     fs.writeFileSync(stylesheet, STYLESHEET_CSS)
     fs.writeFileSync(path.join(root, 'assets', 'bg.png'), Buffer.from('\x89PNG\r\n\x1a\n'))
 
+    // A plugin theme in a plugin root, seeded the way the app seeds its plugin
+    // roots (electron.core -> seedPluginRoots). Kept OUTSIDE the graph root on
+    // purpose: this is the shape that used to be refused.
+    const pluginRoot = path.join(tmp, 'plugins')
+    const pluginDir = path.join(pluginRoot, 'demo-plugin')
+    fs.mkdirSync(pluginDir, { recursive: true })
+    const pluginTheme = path.join(pluginDir, 'theme.css')
+    fs.writeFileSync(pluginTheme, PLUGIN_THEME_CSS)
+    fs.writeFileSync(path.join(pluginDir, 'bg-plugin.png'), Buffer.from('\x89PNG\r\n\x1a\n'))
+
     const run = spawnSync(electronBinary, ['--no-sandbox', '--disable-gpu', FIXTURE], {
       encoding: 'utf-8',
       timeout: 60000,
@@ -110,6 +127,8 @@ describe('assets:// scheme contract', { skip: skipReason }, () => {
         FIXTURE_OUTSIDE: outside,
         FIXTURE_TRAVERSAL: traversal,
         FIXTURE_STYLESHEET: stylesheet,
+        FIXTURE_PLUGIN_ROOT: pluginRoot,
+        FIXTURE_PLUGIN_THEME: pluginTheme,
         ELECTRON_DISABLE_SECURITY_WARNINGS: '1'
       }
     })
@@ -166,6 +185,15 @@ describe('assets:// scheme contract', { skip: skipReason }, () => {
     assert.equal(probe.event, 'load', 'stylesheet did not load: ' + JSON.stringify(probe))
     assert.equal(probe.applied, 'applied')
     assert.match(probe.relativeUrl, /^url\("assets:\/\/.*bg\.png"\)$/)
+  })
+
+  test('a plugin theme in a plugin root loads and applies', () => {
+    // The plugin root is seeded via seedPluginRoots, mirroring electron.core;
+    // without it the assets:// allowlist refuses the SDK's theme URL.
+    const probe = result.mainFrame.pluginTheme
+    assert.equal(probe.event, 'load', 'plugin theme did not load: ' + JSON.stringify(probe))
+    assert.equal(probe.applied, 'applied')
+    assert.match(probe.relativeUrl, /^url\("assets:\/\/.*bg-plugin\.png"\)$/)
   })
 
   test('a plugin frame can read an in-root asset', () => {

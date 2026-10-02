@@ -8,6 +8,7 @@ const IN_ROOT = params.get('in')
 const OUTSIDE = params.get('out')
 const TRAVERSAL = params.get('trav')
 const STYLESHEET = params.get('css')
+const PLUGIN_THEME = params.get('ptheme')
 
 function xhrProbe (url) {
   return new Promise((resolve) => {
@@ -50,14 +51,14 @@ function pluginFrameReport () {
 // (SDK LSPlugin.core.ts _loadConfigThemes). It has to load AND apply, and its
 // own relative url() references have to resolve, or the theme silently does
 // nothing -- which is what happened while that URL was rewritten to file://.
-function stylesheetProbe (href) {
+function stylesheetProbe (href, property) {
   return new Promise((resolve) => {
     const link = document.createElement('link')
     link.rel = 'stylesheet'
     link.href = href
     const done = (event) => resolve({
       event,
-      applied: getComputedStyle(document.body).getPropertyValue('--asset-protocol-probe').trim() || null,
+      applied: getComputedStyle(document.body).getPropertyValue(property).trim() || null,
       relativeUrl: getComputedStyle(document.body).backgroundImage
     })
     link.onload = () => done('load')
@@ -75,7 +76,8 @@ function stylesheetProbe (href) {
       assetsOutOfRoot: await xhrProbe('assets://' + OUTSIDE),
       assetsTraversal: await xhrProbe('assets://' + TRAVERSAL),
       fileInRoot: await xhrProbe('file://' + IN_ROOT),
-      stylesheetInRoot: await stylesheetProbe('assets://' + STYLESHEET)
+      stylesheetInRoot: await stylesheetProbe('assets://' + STYLESHEET, '--asset-protocol-probe'),
+      pluginTheme: await stylesheetProbe('assets://' + PLUGIN_THEME, '--asset-plugin-theme-probe')
     },
     pluginFrame: await pluginFrameReport()
   }

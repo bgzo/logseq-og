@@ -20,6 +20,7 @@ import {
   LSP_SCHEME_PRIVILEGES,
   ASSETS_SCHEME_PRIVILEGES,
   seedAssetRoots,
+  seedPluginRoots,
   resolveAssetsSchemeUrl
 } from '../../../../src/electron/electron/utils.js'
 
@@ -30,13 +31,15 @@ const IN_ROOT = process.env.FIXTURE_IN_ROOT
 const OUTSIDE = process.env.FIXTURE_OUTSIDE
 const TRAVERSAL = process.env.FIXTURE_TRAVERSAL
 const STYLESHEET = process.env.FIXTURE_STYLESHEET
+const PLUGIN_ROOT = process.env.FIXTURE_PLUGIN_ROOT
+const PLUGIN_THEME = process.env.FIXTURE_PLUGIN_THEME
 
 const fail = (why) => {
   console.log('ASSET_PROTOCOL_FATAL ' + why)
   app.exit(2)
 }
 
-if (!FIXTURE_ROOT || !IN_ROOT || !OUTSIDE || !TRAVERSAL || !STYLESHEET) {
+if (!FIXTURE_ROOT || !IN_ROOT || !OUTSIDE || !TRAVERSAL || !STYLESHEET || !PLUGIN_ROOT || !PLUGIN_THEME) {
   fail('fixture env not set')
 }
 
@@ -47,6 +50,10 @@ protocol.registerSchemesAsPrivileged([
 
 app.whenReady().then(() => {
   seedAssetRoots([FIXTURE_ROOT])
+  // The app seeds its plugin roots the same way (electron.core ->
+  // js-utils/seedPluginRoots); a plugin theme is served out of the plugin's
+  // own directory, not the graph.
+  seedPluginRoots([PLUGIN_ROOT])
 
   // Serves the fixture's own documents. /plugins/<x> maps to <x> so the probe
   // can run from a URL the app treats as a plugin frame.
@@ -84,7 +91,7 @@ app.whenReady().then(() => {
 
   // Query params rather than an injected global: the probe scripts read them
   // synchronously at parse time, with no ordering race against the page load.
-  const query = new URLSearchParams({ in: IN_ROOT, out: OUTSIDE, trav: TRAVERSAL, css: STYLESHEET })
+  const query = new URLSearchParams({ in: IN_ROOT, out: OUTSIDE, trav: TRAVERSAL, css: STYLESHEET, ptheme: PLUGIN_THEME })
   win.loadURL('lsp://logseq.com/index.html?' + query)
   setTimeout(() => fail('timed out waiting for probe result'), 25000)
 })
