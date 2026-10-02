@@ -207,7 +207,8 @@ jobs:
           if [ -z "${SESSION_ID}" ]; then
             # 没有可续的会话：退回一次完整审查（handler 自己发评论），
             # 并尝试从日志里抓 session id 给后续轮次 / 快照使用
-            opencode github run 2>&1 | tee "$RUNNER_TEMP/attempt2.log"
+            FALLBACK_STATUS=0
+            opencode github run 2>&1 | tee "$RUNNER_TEMP/attempt2.log" || FALLBACK_STATUS=$?
             SID=$(grep -oE 'opencode session ses_[A-Za-z0-9]+' "$RUNNER_TEMP/attempt2.log" | head -1 | awk '{print $NF}')
             echo "session_id=${SID}" >> "$GITHUB_OUTPUT"
             # 兜底审查期间 attempt 1 被超时干掉的处理进程仍可能补发迟到结论：
@@ -216,6 +217,11 @@ jobs:
             FOUND=$(bash "$RUNNER_TEMP/review/review_verdict.sh" "${PR_NUMBER}" "${RUN_STARTED_AT}") || FOUND=""
             if [ -n "${FOUND}" ]; then
               echo "::warning::A verdict comment (id=${FOUND}) already exists after the fallback run; duplicate comments may exist but the gate accepts any of them."
+            fi
+            # 兜底失败不要吞掉：step 保持可见的红色，后续 attempt 3 / 门禁照常接管
+            if [ "${FALLBACK_STATUS}" -ne 0 ]; then
+              echo "::warning::The fallback full review failed with ${FALLBACK_STATUS}; attempt 3 will take over." >&2
+              exit 1
             fi
             exit 0
           fi
@@ -281,9 +287,20 @@ jobs:
             # 没有可续的会话、只剩一轮 15 分钟：完整审查跑不完，用降级 prompt 抢一个
             # 「P0/P1 + 未审核到位 + 结论」。兜底不保证成功，但比完整审查有机会。
             export PROMPT='时间预算只剩 15 分钟。快速审查本 PR：跳过全面探索，优先检查高风险区域（安全、正确性、CI 权限与超时逻辑），只报告 P0/P1。如果无法完整覆盖，必须单独写「未审核到位」小节列出未覆盖范围；全部覆盖则写「无」。最后一行必须恰好是 结论：LGTM 或 结论：BLOCK；不要写计划或状态说明。'
-            opencode github run 2>&1 | tee "$RUNNER_TEMP/attempt3.log"
+            FALLBACK_STATUS=0
+            opencode github run 2>&1 | tee "$RUNNER_TEMP/attempt3.log" || FALLBACK_STATUS=$?
             SID=$(grep -oE 'opencode session ses_[A-Za-z0-9]+' "$RUNNER_TEMP/attempt3.log" | head -1 | awk '{print $NF}')
             echo "session_id=${SID}" >> "$GITHUB_OUTPUT"
+            # 兜底期间 attempt 1/2 的迟到结论可能补发；无法回滚，仅记 warning
+            FOUND=""
+            FOUND=$(bash "$RUNNER_TEMP/review/review_verdict.sh" "${PR_NUMBER}" "${RUN_STARTED_AT}") || FOUND=""
+            if [ -n "${FOUND}" ]; then
+              echo "::warning::A verdict comment (id=${FOUND}) already exists after the fallback run; duplicate comments may exist but the gate accepts any of them."
+            fi
+            if [ "${FALLBACK_STATUS}" -ne 0 ]; then
+              echo "::warning::The fallback review failed with ${FALLBACK_STATUS}; the gate will report the missing verdict." >&2
+              exit 1
+            fi
             exit 0
           fi
 

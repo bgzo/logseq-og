@@ -20,7 +20,7 @@ session_id="${2:?session id required}"
 events_file="${3:?events output path required}"
 text_file="${4:?text output path required}"
 
-CONTINUE_PROMPT='时间预算提醒：这是同一个审查会话的续跑，此前还没有给出最终审查，本轮最多再给 25 分钟。
+CONTINUE_PROMPT='时间预算提醒：这是同一个审查会话的续跑，此前还没有给出最终审查，本轮最多再给 __BUDGET__。
 
 要求：
 1. 立即继续完成这个 PR 的审查，优先覆盖尚未审查的文件、模块和审查维度；继续使用工具阅读代码、检查 diff 和上下文。
@@ -55,6 +55,14 @@ esac
 
 : "${MODEL:?MODEL is required}"
 turn_timeout="${TURN_TIMEOUT:-${default_timeout}}"
+
+# 提示语里的预算必须和实际 timeout 一致；调用方约定传 <n>m，h/s 也做了兜底。
+case "${turn_timeout}" in
+  *h) turn_budget_label="$((${turn_timeout%h} * 60)) 分钟" ;;
+  *m) turn_budget_label="${turn_timeout%m} 分钟" ;;
+  *) turn_budget_label="${turn_timeout}" ;;
+esac
+prompt="${prompt//__BUDGET__/${turn_budget_label}}"
 
 # VARIANT 只被 github handler 读取，opencode run 需要显式传 --variant；
 # 未设置时不传，避免空值触发 VariantUnavailableError。
