@@ -437,7 +437,25 @@ export const isRelaxablePluginRequest = ({ frameUrl, resourceType } = {}) => {
 //
 // Anything not positively identified as a plugin request is left untouched: this
 // must fail CLOSED. A request we cannot attribute is not a request we relax.
-const pluginRequestIds = new Map() // id -> timestamp
+/**
+ * Pull the CORS preflight's requested header names out of a request's headers,
+ * case-insensitively. A preflight must list what the caller asked for: the fetch
+ * spec excludes `Authorization` from the `*` wildcard, so echoing `*` alone
+ * makes any plugin XHR carrying one fail preflight -- a call that worked under
+ * the old file:// renderer.
+ */
+export const acrhFromRequestHeaders = (headers) => {
+  if (!headers || typeof headers !== 'object') return ''
+  for (const k of Object.keys(headers)) {
+    if (k.toLowerCase() === 'access-control-request-headers') {
+      const v = headers[k]
+      return typeof v === 'string' ? v : Array.isArray(v) ? v.join(', ') : ''
+    }
+  }
+  return ''
+}
+
+const pluginRequestIds = new Map() // id -> { ts, acrh }
 const MAX_TRACKED_REQUESTS = 2000
 // Long enough to outlive any realistic request/response round trip, so a slow
 // download does not lose its entry before onHeadersReceived fires -- which would
@@ -451,13 +469,16 @@ const TRACKED_REQUEST_TTL_MS = 10 * 60 * 1000
  */
 const evictStaleRequests = () => {
   const cutoff = Date.now() - TRACKED_REQUEST_TTL_MS
-  for (const [k, t] of pluginRequestIds) {
-    if (t < cutoff) pluginRequestIds.delete(k)
+  for (const [k, entry] of pluginRequestIds) {
+    if (entry.ts < cutoff) pluginRequestIds.delete(k)
   }
 }
 
-export const rememberPluginRequest = (id) => {
-  pluginRequestIds.set(id, Date.now())
+export const rememberPluginRequest = (id, acrh = '') => {
+  pluginRequestIds.set(id, {
+    ts: Date.now(),
+    acrh: typeof acrh === 'string' ? acrh : ''
+  })
   if (pluginRequestIds.size > MAX_TRACKED_REQUESTS) {
     evictStaleRequests()
     // Everything is younger than the TTL: this is a genuine flood rather than a
@@ -470,6 +491,18 @@ export const rememberPluginRequest = (id) => {
       }
     }
   }
+}
+
+/**
+ * Attach the preflight header names from onBeforeSendHeaders to an already
+ * tracked request. Returns false for a request that was never attributed, so
+ * the caller cannot widen the relaxation by recording headers for anything else.
+ */
+export const rememberPluginRequestHeaders = (id, headers) => {
+  const entry = pluginRequestIds.get(id)
+  if (!entry) return false
+  entry.acrh = acrhFromRequestHeaders(headers)
+  return true
 }
 
 /** Test seam. Not used by the app. */
@@ -527,7 +560,39 @@ const installBeforeRequestTracker = (win) => {
       c({ cancel: false })
     }
   )
+
+  // Electron allows ONE listener per webRequest event per session, so this must
+  // hold every consumer of onBeforeSendHeaders:
+  //  - CORS preflights: capture Access-Control-Request-Headers for tracked
+  //    requests, which relaxCorsForPluginFrames echoes back (the `*` wildcard
+  //    does not cover Authorization);
+  //  - the YouTube embed header rewrite that used to live in electron.window --
+  //    registering it there would silently replace this listener and take the
+  //    attribution capture down with it.
+  win.webContents.session.webRequest.onBeforeSendHeaders(
+    { urls: ['http://*/*', 'https://*/*'] },
+    (d, c) => {
+      if (pluginRequestIds.has(d.id)) {
+        rememberPluginRequestHeaders(d.id, d.requestHeaders)
+      }
+
+      if (YOUTUBE_RE.test(d.url)) {
+        const headers = { ...d.requestHeaders }
+        for (const k of Object.keys(headers)) {
+          if (k.toLowerCase() === 'cookie') delete headers[k]
+        }
+        headers['Referrer-Policy'] = "strict-origin-when-cross-origin'"
+        headers['referer'] = 'https://logseq.com'
+        c({ cancel: false, requestHeaders: headers })
+        return
+      }
+
+      c({ cancel: false })
+    }
+  )
 }
+
+const YOUTUBE_RE = /^https?:\/\/([^/]*\.)?youtube\.com([/:?#]|$)/i
 
 export const relaxCorsForPluginFrames = (d) => {
   // Fail closed: only requests positively attributed to a plugin frame at
@@ -535,7 +600,8 @@ export const relaxCorsForPluginFrames = (d) => {
   // NOTE: do NOT delete the entry here. onHeadersReceived fires again for each
   // hop of a redirect chain, and dropping it on the first response would leave
   // the final one unrelaxed. Entries expire by age instead.
-  if (!pluginRequestIds.has(d.id)) return
+  const entry = pluginRequestIds.get(d.id)
+  if (!entry) return
 
   for (const k of Object.keys(d.responseHeaders)) {
     const lk = k.toLowerCase()
@@ -550,7 +616,10 @@ export const relaxCorsForPluginFrames = (d) => {
   }
 
   d.responseHeaders['Access-Control-Allow-Origin'] = ['*']
-  d.responseHeaders['Access-Control-Allow-Headers'] = ['*']
+  // Echo the preflight's requested header names when they were captured: `*`
+  // does not cover Authorization per the fetch spec, so a plugin XHR sending
+  // one would otherwise fail preflight -- a call that worked under file://.
+  d.responseHeaders['Access-Control-Allow-Headers'] = entry.acrh ? [entry.acrh] : ['*']
   d.responseHeaders['Access-Control-Allow-Methods'] = [
     'GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD'
   ]

@@ -86,7 +86,10 @@ jobs:
         # The asset-protocol suite boots a real Electron, which needs a display
         # on Linux; without xvfb it skips entirely and the core contract
         # ("an in-root asset is fetchable, an out-of-root one is not") is never
-        # exercised in CI.
+        # exercised in CI. REQUIRE_ELECTRON_ASSETS turns that skip into a
+        # failure, so a green job means the suite actually ran.
+        env:
+          REQUIRE_ELECTRON_ASSETS: "1"
         run: |
           sudo apt-get update
           sudo apt-get install -y xvfb

@@ -4,7 +4,7 @@
             [electron.configs :as cfgs]
             [electron.context-menu :as context-menu]
             [electron.logger :as logger]
-            ["electron" :refer [BrowserWindow app session shell] :as electron]
+            ["electron" :refer [BrowserWindow app shell] :as electron]
             ["path" :as node-path]
             ["url" :as URL]
             [electron.state :as state]
@@ -59,17 +59,6 @@
                      linux?
                      (assoc :icon (node-path/join js/__dirname "icons/logseq.png")))
          win       (BrowserWindow. (clj->js win-opts))]
-     (.onBeforeSendHeaders (.. session -defaultSession -webRequest)
-                           (clj->js {:urls (array "*://*.youtube.com/*")})
-                           (fn [^js details callback]
-                             (let [requestHeaders (.-requestHeaders details)
-                                   headers (-> (bean/->clj requestHeaders)
-                                               (dissoc :Cookie :cookie)
-                                               (assoc :Referrer-Policy "strict-origin-when-cross-origin'"
-                                                      :referer "https://logseq.com"))]
-                               (callback (bean/->js
-                                          {:cancel         false
-                                           :requestHeaders headers})))))
      (.loadURL win url)
      ;;(when dev? (.. win -webContents (openDevTools)))
      win)))

@@ -1352,6 +1352,17 @@ class LSPluginCore
           this
         )
 
+        // An external plugin's frame fetches its entry document over
+        // lsp://.../external/<root>/... BEFORE registration finishes, and main
+        // resolves that route against preferences.json. The entry navigation is
+        // one-shot: a miss is a 404 with no retry, and the plugin never loads.
+        // Persist the root before mounting the frame rather than once at the end
+        // of the loop.
+        if (!pluginLocal.isInstalledInDotRoot) {
+          externals.add(url)
+          await this.saveUserPreferences({ externals: Array.from(externals) })
+        }
+
         const perfInfo = { o: pluginLocal, s: performance.now(), e: 0 }
         perfTable.set(url, perfInfo)
 

@@ -88,6 +88,15 @@ const skipReason = !electronBinary
     ? 'no display available for Electron on this Linux host'
     : false
 
+// CI sets REQUIRE_ELECTRON_ASSETS=1. A skipped suite there means the core
+// contract (an in-root asset is fetchable from the app origin, an out-of-root
+// one is not) never ran while the job stayed green -- fail loudly instead.
+if (process.env.REQUIRE_ELECTRON_ASSETS === '1' && skipReason) {
+  test('assets:// scheme contract must not be skipped in this environment', () => {
+    assert.fail('REQUIRE_ELECTRON_ASSETS=1 but the suite would skip: ' + skipReason)
+  })
+}
+
 describe('assets:// scheme contract', { skip: skipReason }, () => {
   let tmp
   let result
