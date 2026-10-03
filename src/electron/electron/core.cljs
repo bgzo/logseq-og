@@ -148,7 +148,12 @@
                    plugin-url?
                    (-> path'
                        (utils/safe-decode-uri-component)
-                       (string/replace-first #"^/plugins" "")
+                       ;; Only strip the namespaced /plugins prefix, and only
+                       ;; when it is a path segment of its own: a legacy plugin
+                       ;; directory named "plugins-foo" arrives as
+                       ;; /plugins-foo/... and must not lose its first seven
+                       ;; characters.
+                       (string/replace-first #"^/plugins(?=/|$)" "")
                        (#(js-utils/resolveWithin PLUGINS_ROOT %)))
 
                    external-plugin-url?

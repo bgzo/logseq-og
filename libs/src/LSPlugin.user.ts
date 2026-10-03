@@ -576,6 +576,15 @@ export class LSPluginUser
       }
 
       const req = input && typeof input === 'object' && 'url' in input ? input : null
+
+      // A Request instance can carry its own body, which the bridge never
+      // serialises (it only looks at init.body): bridging would silently send
+      // an empty request for POST/PUT. Keep the native path (CORS applies)
+      // rather than corrupting the payload.
+      if (req && req.body != null && init?.body == null) {
+        return nativeFetch(input, init)
+      }
+
       const signal: AbortSignal | undefined = init?.signal ?? req?.signal
       const credentials = init?.credentials ?? req?.credentials
       let body = init?.body ?? undefined
