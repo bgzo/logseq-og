@@ -1344,6 +1344,17 @@ class LSPluginCore
         )
       }
 
+      // `options.url` is the raw package path while `dotConfigRoot` is already
+      // normalized, so compare normalized forms: on Windows separators and
+      // drive-letter case can differ between the two strings, and a false
+      // "external" verdict would pollute preferences.json with a dot-root path.
+      const dotRoot = path.normalize(this._options.dotConfigRoot || '')
+      const isWin = path.sep === '\\'
+      const norm = (p: string) =>
+        isWin ? path.normalize(p).toLowerCase() : path.normalize(p)
+      const isDotRootPlugin = (u: string) =>
+        Boolean(dotRoot && norm(u).startsWith(norm(dotRoot)))
+
       for (const pluginOptions of plugins) {
         const { url } = pluginOptions as PluginLocalOptions
         const pluginLocal = new PluginLocal(
@@ -1356,9 +1367,10 @@ class LSPluginCore
         // lsp://.../external/<root>/... BEFORE registration finishes, and main
         // resolves that route against preferences.json. The entry navigation is
         // one-shot: a miss is a 404 with no retry, and the plugin never loads.
-        // Persist the root before mounting the frame rather than once at the end
-        // of the loop.
-        if (!pluginLocal.isInstalledInDotRoot) {
+        // Persist only a root that is not already recorded -- one already in
+        // preferences.json was seeded by main at startup, and rewriting the
+        // whole file once per external plugin would stall registration.
+        if (!isDotRootPlugin(url) && !externals.has(url)) {
           externals.add(url)
           await this.saveUserPreferences({ externals: Array.from(externals) })
         }
@@ -1376,6 +1388,13 @@ class LSPluginCore
           debug('[Failed LOAD Plugin] #', pluginOptions)
 
           this.emit('error', loadErr)
+
+          if (loadErr instanceof IllegalPluginPackageError) {
+            // The root was persisted before mounting so the frame could load;
+            // the package is invalid, so drop it again -- otherwise every
+            // startup retries it and re-logs the same failure.
+            externals.delete(url)
+          }
 
           if (
             loadErr instanceof IllegalPluginPackageError ||

@@ -581,7 +581,6 @@ const installBeforeRequestTracker = (win) => {
         for (const k of Object.keys(headers)) {
           if (k.toLowerCase() === 'cookie') delete headers[k]
         }
-        headers['Referrer-Policy'] = "strict-origin-when-cross-origin'"
         headers['referer'] = 'https://logseq.com'
         c({ cancel: false, requestHeaders: headers })
         return
