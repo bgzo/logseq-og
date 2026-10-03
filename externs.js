@@ -122,6 +122,21 @@ dummy.commit = function() {};
 dummy.raw = function() {};
 dummy.onHeadersReceived = function() {};
 dummy.responseHeaders = function() {};
+// Electron webRequest names used by the plugin CORS policy in
+// src/electron/electron/utils.js. Without these, advanced-mode property renaming
+// mangles them and the call fails at runtime with "$onBeforeRequest$ is not a
+// function" -- which aborts app setup before the 'main' IPC handler registers.
+dummy.onBeforeRequest = function() {};
+dummy.resourceType = function() {};
+dummy.frame = function() {};
+// frame.url / frame.parent are read by the plugin-request tracker in utils.js
+// (installBeforeRequestTracker) to attribute a request to a plugin frame. A
+// renamed read there would make every attribution fail in release builds, so
+// the CORS relaxation would never apply. The default externs currently cover
+// both names, but they are listed explicitly so that a catalog change cannot
+// silently reintroduce the bug; the compiled-output guard asserts they survive.
+dummy.url = function() {};
+dummy.parent = function() {};
 dummy.velocityDecay = function() {};
 dummy.velocityDecay = function() {};
 dummy.updatePosition = function() {};

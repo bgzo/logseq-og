@@ -51,6 +51,39 @@
     (string/replace-first
      #"^(file://|assets://)" gp-config/capacitor-protocol-with-prefix)))
 
+(defn- local-asset-protocol
+  "Protocol for a URL the renderer will actually fetch a local asset from.
+
+   On Electron this MUST be assets://, not file://. The renderer document is
+   served over the privileged lsp:// scheme (electron/window.cljs
+   MAIN_WINDOW_ENTRY -- a file:// document has an opaque origin, which breaks
+   plugin iframes from Electron 40 on), and Chromium refuses a file://
+   subresource from a non-file origin. The failure is silent for an <img> and
+   actively misleading for a PDF: pdf.js reports the blocked read as
+   `Missing PDF \"file:///...pdf\"`, which reads as a deleted file.
+
+   assets:// is the app's own protocol, registered by the main process with
+   supportFetchAPI + corsEnabled for exactly this, and contained to the graph
+   directories, the alias directories, and the plugin roots (a plugin theme is
+   served from the plugin's own directory -- electron/utils.js
+   ASSETS_SCHEME_PRIVILEGES and resolveWithinAnyRoot)."
+  []
+  (if (util/electron?) "assets:" "file:"))
+
+(defn- ensure-url-path
+  "Give a Windows drive path a leading slash before it goes after assets://.
+
+   `prepend-protocol` builds `assets://C:/...` otherwise, and for a non-standard
+   scheme Chromium reads the drive letter as the URL host (the colon does not
+   survive parsing). The main process then gets a path it cannot resolve and
+   refuses every local asset on Windows. POSIX paths already start with a slash."
+  [path]
+  (if (and (string? path)
+           (re-find #"^[a-zA-Z]:[\\/]" path)
+           (not (string/starts-with? path "/")))
+    (str "/" path)
+    path))
+
 (defn resolve-asset-real-path-url
   [repo rpath]
   (when-let [rpath (and (string? rpath)
@@ -74,11 +107,13 @@
                                                  (second (get-alias-by-name (second (re-find #"^@([^\/]+)" rpath')))))
                                             (vector rpath')))))]
 
-                    (str "assets://" (string/replace rpath' (str "@" (:name alias)) (:dir alias)))
+                    (str "assets://" (ensure-url-path
+                                      (string/replace rpath' (str "@" (:name alias)) (:dir alias))))
 
                     (if has-schema?
                       (path/path-join graph-root rpath)
-                      (path/prepend-protocol "file:" (path/path-join graph-root rpath)))))]
+                      (path/prepend-protocol (local-asset-protocol)
+                                             (ensure-url-path (path/path-join graph-root rpath))))))]
         (convert-platform-protocol ret)))))
 
 (defn normalize-asset-resource-url
@@ -94,8 +129,9 @@
       (path/absolute? path)
       (if (boolean (re-find #"(?i)%[0-9a-f]{2}" path)) ;; has encoded chars?
         ;; Incoming path might be already URL encoded. from PDF assets
-        (path/path-join "file://" (gp-util/safe-decode-uri-component path))
-        (path/path-join "file://" path))
+        (path/prepend-protocol (local-asset-protocol)
+                               (ensure-url-path (gp-util/safe-decode-uri-component path)))
+        (path/prepend-protocol (local-asset-protocol) (ensure-url-path path)))
 
 
       :else ;; relative path or alias path

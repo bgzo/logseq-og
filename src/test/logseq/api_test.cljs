@@ -2,6 +2,8 @@
   (:require [cljs.test :refer [use-fixtures deftest is]]
             [frontend.test.helper :as test-helper]
             [frontend.db :as db]
+            [frontend.plugin.preferences :as plugin-preferences]
+            [frontend.util :as util]
             [logseq.api.block :as api-block]
             [frontend.state :as state]
             [cljs-bean.core :as bean]))
@@ -36,5 +38,26 @@
            (bean/->clj (api-block/get_block 10001 #js {:includeChildren false}))))
     (is (= {:content "2", :uuid "d9b7b45f-267f-4794-9569-f43d1ce77172", :id 10001, :children [{:content "3", :left {:id 10001}, :parent {:id 10001}, :uuid "adae3006-f03e-4814-a1f5-f17f15b86556", :id 10002, :level 1, :children [{:content "4", :left {:id 10002}, :parent {:id 10002}, :uuid "0c3053c3-2dab-4769-badd-14ce16d8ba8d", :id 10003, :level 2, :children []}]}]}
            (bean/->clj (api-block/get_block 10001 #js {:includeChildren true}))))))
+
+(deftest migrate-user-preferences-theme-urls
+  ;; A theme persisted before the renderer moved off file:// is rewritten to
+  ;; assets:// on the way in AND on the way out; without this an upgraded user's
+  ;; selected theme silently stops applying (lsp://logseq.com refuses file://
+  ;; subresources).
+  (with-redefs [util/electron? (constantly true)]
+    (let [prefs  #js {:theme  #js {:url "file:///home/nils/theme.css"}
+                      :themes #js {:mode  "light"
+                                   :light #js {:url "file:///home/nils/light.css"}
+                                   :dark  #js {:url "assets:///home/nils/dark.css"}}}
+          result (plugin-preferences/migrate-user-preferences prefs)]
+      (is (= "assets:///home/nils/theme.css" (aget result "theme" "url")))
+      (is (= "assets:///home/nils/light.css" (aget result "themes" "light" "url")))
+      (is (= "assets:///home/nils/dark.css" (aget result "themes" "dark" "url")))))
+
+  (with-redefs [util/electron? (constantly false)]
+    (let [prefs #js {:theme #js {:url "file:///home/nils/theme.css"}}]
+      (plugin-preferences/migrate-user-preferences prefs)
+      (is (= "file:///home/nils/theme.css" (aget prefs "theme" "url"))
+          "web/mobile have no assets:// handler, so the URL must stay untouched"))))
 
 #_(cljs.test/run-tests)
