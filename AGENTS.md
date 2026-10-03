@@ -6,7 +6,7 @@ Guidance for OpenCode sessions in this repo. Deeper background lives in `CODEBAS
 
 - Logseq OG is a fork of [logseq/logseq](https://github.com/logseq/logseq), rebranded to "Logseq OG" (`origin` = `github.com/bgzo/logseq-og`). Remote default branch is `version/file`; the desktop release workflow defaults to building it.
 - App: ClojureScript (shadow-cljs) + Rum/React 17 + DataScript, with Gulp for asset copying and PostCSS/Tailwind for CSS.
-- Desktop: Electron 38. Mobile: Capacitor. UI kit: `packages/ui` (shadcn/"shui", TypeScript + React 18).
+- Desktop: Electron 44. Mobile: Capacitor. UI kit: `packages/ui` (shadcn/"shui", TypeScript + React 18).
 
 ## Toolchain
 
@@ -41,7 +41,7 @@ Guidance for OpenCode sessions in this repo. Deeper background lives in `CODEBAS
 
 - Don't edit generated files: `static/**`, `src/main/frontend/tldraw-logseq.js`, `resources/js/ui.js`, `packages/ui/.storybook/cljs`.
 - If `resources/package.json` dependencies change, run `cd static && yarn install` and commit `static/yarn.lock`; CI fails on a stale lockfile.
-- Electron 38.4.0 is pinned in three places: root `package.json`, `resources/package.json` (`electron` and `rebuild:all -v 38.4.0`). Update them together. (The Electron 41.7.1 upgrade was reverted in 1.0.2; re-apply it only together with the plugin-loading rework for Electron 40+.)
+- Electron 44.5.1 is pinned in three places: root `package.json`, `resources/package.json` (`electron` and `rebuild:all -v 44.5.1`). Update them together. Keep `better-sqlite3` at 13+ (N-API prebuilds) and `node-abi` current when bumping Electron.
 - Fork identity: use the `logseq-og` URL scheme (`frontend.util.url`), `~/.logseq-og` global dir, mobile appId `com.logseq.og`, and Electron bundle id `com.logseq.logseq-og` — don't reintroduce upstream `logseq://` / `~/.logseq` defaults.
 - App version lives in `src/main/frontend/version.cljs`; `scripts/get-pkg-version.js` and gulp's `electronMaker` derive from it.
 - No Clojure(Script) formatter is enforced and formatting is inconsistent; don't reformat unrelated code. PRs reject formatting/whitespace churn and drive-by dependency bumps (`CONTRIBUTING.md`).
