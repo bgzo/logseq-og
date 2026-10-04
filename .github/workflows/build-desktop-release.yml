@@ -719,7 +719,7 @@ jobs:
         with:
           tag_name: ${{ steps.ref.outputs.version }}
           name: ${{ github.event.inputs.build-target == 'beta' && format('Desktop/Android APP {0} (Beta Testing)', steps.ref.outputs.version) || format('Desktop/Android APP {0}', steps.ref.outputs.version) }}
-          body: "TODO: Fill this changelog. Sorry for the inconvenience!"
+          generate_release_notes: true
           draft: ${{ github.event.inputs.is-draft }}
           # Beta releases are always marked prerelease so they stay out of the
           # update feed and never reach stable users.
