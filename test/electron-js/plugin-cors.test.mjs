@@ -24,6 +24,8 @@ import {
   resetReseedThrottle,
   isRelaxablePluginRequest,
   rememberPluginRequest,
+  rememberPluginRequestHeaders,
+  acrhFromRequestHeaders,
   clearTrackedRequests,
   trackedRequestCount,
   relaxCorsForPluginFrames,
@@ -339,6 +341,14 @@ describe('relaxCorsForPluginFrames', () => {
     assert.ok(h['Access-Control-Allow-Methods'])
   })
 
+  test('echoes the captured Access-Control-Request-Headers instead of the wildcard', () => {
+    // `*` does not cover Authorization per the fetch spec, so a plugin XHR
+    // carrying one would fail preflight even though the same call passed under
+    // the old file:// renderer.
+    rememberPluginRequest(1, 'Authorization, X-Custom')
+    assert.deepEqual(headersOf({})['Access-Control-Allow-Headers'], ['Authorization, X-Custom'])
+  })
+
   test('exposes response headers, so a plugin can read more than the CORS-safelisted ones', () => {
     rememberPluginRequest(1)
     assert.deepEqual(headersOf({})['Access-Control-Expose-Headers'], ['*'])
@@ -364,6 +374,38 @@ describe('relaxCorsForPluginFrames', () => {
     assert.deepEqual(headersOf({ 'Content-Type': ['application/json'] })['Content-Type'], [
       'application/json',
     ])
+  })
+})
+
+describe('Access-Control-Request-Headers capture', () => {
+  beforeEach(() => clearTrackedRequests())
+
+  test('finds the header case-insensitively and joins array values', () => {
+    assert.equal(
+      acrhFromRequestHeaders({ 'access-control-request-headers': 'Authorization' }),
+      'Authorization'
+    )
+    assert.equal(
+      acrhFromRequestHeaders({ 'Access-Control-Request-Headers': ['Authorization', 'X-A'] }),
+      'Authorization, X-A'
+    )
+  })
+
+  test('returns an empty string for missing or malformed input', () => {
+    assert.equal(acrhFromRequestHeaders({}), '')
+    assert.equal(acrhFromRequestHeaders(null), '')
+    assert.equal(acrhFromRequestHeaders({ 'Access-Control-Request-Headers': 42 }), '')
+  })
+
+  test('only attaches headers to an already-attributed request', () => {
+    assert.equal(rememberPluginRequestHeaders(7, 'X'), false)
+
+    rememberPluginRequest(7)
+    assert.equal(rememberPluginRequestHeaders(7, 'X'), true)
+
+    const d = { id: 7, responseHeaders: {} }
+    relaxCorsForPluginFrames(d)
+    assert.deepEqual(d.responseHeaders['Access-Control-Allow-Headers'], ['X'])
   })
 })
 
@@ -471,13 +513,17 @@ describe('compiled release output (guard)', () => {
     if (!isPseudoNamed(s)) return
     for (const name of [
       'onBeforeRequest',
+      'onBeforeSendHeaders',
       'onHeadersReceived',
+      'requestHeaders',
       'responseHeaders',
       'resourceType',
       // Read off details.frame when a plugin request is attributed. Renaming
       // either leaves frameUrl empty and no request is ever relaxed.
       'url',
-      'parent'
+      'parent',
+      // Read for the attributed-preflight diagnostic.
+      'method'
     ]) {
       assert.ok(
         !new RegExp(`\\.\\$${name}\\$`).test(s),

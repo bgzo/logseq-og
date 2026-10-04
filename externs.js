@@ -137,6 +137,16 @@ dummy.frame = function() {};
 // silently reintroduce the bug; the compiled-output guard asserts they survive.
 dummy.url = function() {};
 dummy.parent = function() {};
+// onBeforeSendHeaders captures the CORS preflight's requested header names for
+// tracked plugin requests (the `*` wildcard does not cover Authorization), and
+// carries the YouTube header rewrite that used to live in electron.window.
+// Without these entries :advanced renames the reads and preflight capture
+// silently stops working in release builds.
+dummy.onBeforeSendHeaders = function() {};
+dummy.requestHeaders = function() {};
+// Read when the tracker logs an attributed preflight with no
+// Access-Control-Request-Headers to echo.
+dummy.method = function() {};
 dummy.velocityDecay = function() {};
 dummy.velocityDecay = function() {};
 dummy.updatePosition = function() {};

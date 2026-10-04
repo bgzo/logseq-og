@@ -173,6 +173,26 @@ export function safetyPathNormalize(basePath: string) {
 }
 
 /**
+ * Is `child` inside `parent` (or equal to it)?
+ *
+ * Boundary-aware on purpose: a plain startsWith() counts /a/root-backup as
+ * inside /a/root. Both sides are normalized with the platform-aware path module
+ * and compared case-insensitively on Windows, where separators and drive-letter
+ * case can differ between raw plugin paths and the normalized dot-root.
+ */
+export function isPathInside(child: string, parent: string): boolean {
+  if (!child || !parent) return false
+  const strip = (p: string) => path.normalize(p).replace(/[\\/]+$/, '')
+  const c = strip(child)
+  const p = strip(parent)
+  if (!c || !p) return false
+  const win = path.sep === '\\'
+  const cc = win ? c.toLowerCase() : c
+  const pp = win ? p.toLowerCase() : p
+  return cc === pp || cc.startsWith(pp + path.sep)
+}
+
+/**
  * @param timeout milliseconds
  * @param tag string
  */

@@ -17,6 +17,7 @@ import {
   safetyPathJoin,
   path,
   safetyPathNormalize,
+  isPathInside,
   mergeSettingsWithSchema,
   IS_DEV,
   cleanInjectedScripts,
@@ -1043,9 +1044,7 @@ class PluginLocal extends EventEmitter<
   }
 
   get isInstalledInDotRoot() {
-    const dotRoot = this.dotConfigRoot
-    const plgRoot = this.localRoot
-    return dotRoot && plgRoot && plgRoot.startsWith(dotRoot)
+    return isPathInside(this.localRoot, this.dotConfigRoot)
   }
 
   get loaded() {
@@ -1352,6 +1351,20 @@ class LSPluginCore
           this
         )
 
+        // An external plugin's frame fetches its entry document over
+        // lsp://.../external/<root>/... BEFORE registration finishes, and main
+        // resolves that route against preferences.json. The entry navigation is
+        // one-shot: a miss is a 404 with no retry, and the plugin never loads.
+        // Persist only a root that is not already recorded -- one already in
+        // preferences.json was seeded by main at startup, and rewriting the
+        // whole file once per external plugin would stall registration.
+        let preSaved = false
+        if (!pluginLocal.isInstalledInDotRoot && !externals.has(url)) {
+          externals.add(url)
+          preSaved = true
+          await this.saveUserPreferences({ externals: Array.from(externals) })
+        }
+
         const perfInfo = { o: pluginLocal, s: performance.now(), e: 0 }
         perfTable.set(url, perfInfo)
 
@@ -1370,6 +1383,14 @@ class LSPluginCore
             loadErr instanceof IllegalPluginPackageError ||
             loadErr instanceof ExistedImportedPluginPackageError
           ) {
+            if (preSaved) {
+              // Roll back the root written just so the frame could try to
+              // load: only a plugin that actually registers should stay in
+              // preferences.json, or validate_external_plugins retries and
+              // re-logs it on every startup.
+              externals.delete(url)
+            }
+
             // TODO: notify global log system?
             continue
           }
