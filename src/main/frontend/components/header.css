@@ -196,7 +196,7 @@
     margin: 0 6px;
 }
 
-.is-mac.is-electron :is(.cp__header, .cp__right-sidebar-topbar) :is(button, .button, a):not(.file-sync-item) {
+.is-mac.is-electron :is(.cp__header, .cp__right-sidebar-topbar) :is(button, .button, a) {
   cursor: default !important;
 }
 

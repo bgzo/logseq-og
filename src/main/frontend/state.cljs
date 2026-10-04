@@ -3,7 +3,6 @@
   cursors"
   (:require [cljs-bean.core :as bean]
             [cljs.core.async :as async :refer [<! >!]]
-            [cljs.spec.alpha :as s]
             [clojure.string :as string]
             [dommy.core :as dom]
             [electron.ipc :as ipc]
@@ -269,35 +268,7 @@
 
      :reactive/query-dbs                    {}
 
-     ;; login, userinfo, token, ...
-     :auth/refresh-token                    (storage/get "refresh-token")
-     :auth/access-token                     nil
-     :auth/id-token                         nil
-
-     ;; file-sync
-     :file-sync/jstour-inst                   nil
-     :file-sync/onboarding-state            (or (storage/get :file-sync/onboarding-state)
-                                                {:welcome false})
-     :file-sync/remote-graphs               {:loading false :graphs nil}
-     :file-sync/set-remote-graph-password-result {}
-
-     ;; graph-uuid -> {:graphs-txid {}
-     ;;                :file-sync/sync-manager {}
-     ;;                :file-sync/sync-state {}
-     ;;                ;; {file-path -> payload}
-     ;;                :file-sync/progress {}
-     ;;                :file-sync/start-time {}
-     ;;                :file-sync/last-synced-at {}}
-     :file-sync/graph-state                 {:current-graph-uuid nil}
-                                             ;; graph-uuid -> ...
-
-     :user/info                             {:UserGroups (storage/get :user-groups)}
-     :encryption/graph-parsing?             false
-
      :ui/loading?                           {}
-     :feature/enable-sync?                  (storage/get :logseq-sync-enabled)
-     :feature/enable-sync-diff-merge?       ((fnil identity true) (storage/get :logseq-sync-diff-merge-enabled))
-
      :file/rename-event-chan                (async/chan 100)
      :ui/find-in-page                       nil
      :graph/importing                       nil
@@ -629,14 +600,6 @@ Similar to re-frame subscriptions"
   ([repo]
    (not (false? (:feature/enable-flashcards? (sub-config repo))))))
 
-(defn enable-sync?
-  []
-  (sub :feature/enable-sync?))
-
-(defn enable-sync-diff-merge?
-  []
-  (sub :feature/enable-sync-diff-merge?))
-
 (defn enable-whiteboards?
   ([]
    (enable-whiteboards? (get-current-repo)))
@@ -727,10 +690,6 @@ Similar to re-frame subscriptions"
   (and (document-mode?)
        (not (:shortcut/doc-mode-enter-for-new-block? (get-config)))))
 
-(defn user-groups
-  []
-  (set (sub [:user/info :UserGroups])))
-
 ;; State mutation helpers
 ;; ======================
 
@@ -798,43 +757,6 @@ Similar to re-frame subscriptions"
   []
   (or (:git/current-repo @state)
       "local"))
-
-(defn get-remote-graphs
-  []
-  (get-in @state [:file-sync/remote-graphs :graphs]))
-
-(defn get-remote-graph-info-by-uuid
-  [uuid]
-  (when-let [graphs (seq (get-in @state [:file-sync/remote-graphs :graphs]))]
-    (some #(when (= (:GraphUUID %) (str uuid)) %) graphs)))
-
-(defn get-remote-graph-usage
-  []
-  (when-let [graphs (seq (get-in @state [:file-sync/remote-graphs :graphs]))]
-    (->> graphs
-         (map #(hash-map :uuid (:GraphUUID %)
-                         :name (:GraphName %)
-                         :used-gbs (/ (:GraphStorageUsage %) 1024 1024 1024)
-                         :limit-gbs (/ (:GraphStorageLimit %) 1024 1024 1024)
-                         :used-percent (/ (:GraphStorageUsage %) (:GraphStorageLimit %) 0.01)))
-         (map #(assoc % :free-gbs (- (:limit-gbs %) (:used-gbs %))))
-         (vec))))
-
-(defn delete-remote-graph!
-  [repo]
-  (swap! state update-in [:file-sync/remote-graphs :graphs]
-         (fn [repos]
-           (remove #(and
-                     (:GraphUUID repo)
-                     (:GraphUUID %)
-                     (= (:GraphUUID repo) (:GraphUUID %))) repos))))
-
-(defn add-remote-graph!
-  [repo]
-  (swap! state update-in [:file-sync/remote-graphs :graphs]
-         (fn [repos]
-           (->> (conj repos repo)
-                (distinct)))))
 
 (defn get-repos
   []
@@ -2076,62 +1998,6 @@ Similar to re-frame subscriptions"
     {:custom-query? (:custom-query? config)
      :ref? (:ref? config)}))
 
-(defn set-auth-id-token
-  [id-token]
-  (set-state! :auth/id-token id-token))
-
-(defn set-auth-refresh-token
-  [refresh-token]
-  (set-state! :auth/refresh-token refresh-token))
-
-(defn set-auth-access-token
-  [access-token]
-  (set-state! :auth/access-token access-token))
-
-(defn get-auth-id-token []
-  (sub :auth/id-token))
-
-(defn get-auth-refresh-token []
-  (:auth/refresh-token @state))
-
-(defn set-file-sync-manager [graph-uuid v]
-  (when (and graph-uuid v)
-    (set-state! [:file-sync/graph-state graph-uuid :file-sync/sync-manager] v)))
-
-(defn get-file-sync-manager [graph-uuid]
-  (get-in @state [:file-sync/graph-state graph-uuid :file-sync/sync-manager]))
-
-(defn clear-file-sync-state! [graph-uuid]
-  (set-state! [:file-sync/graph-state graph-uuid] nil))
-
-(defn clear-file-sync-progress! [graph-uuid]
-  (set-state! [:file-sync/graph-state
-               graph-uuid
-               :file-sync/progress]
-              nil))
-
-(defn set-file-sync-state [graph-uuid v]
-  (when v (s/assert :frontend.fs.sync/sync-state v))
-  (set-state! [:file-sync/graph-state graph-uuid :file-sync/sync-state] v))
-
-(defn get-current-file-sync-graph-uuid
-  []
-  (get-in @state [:file-sync/graph-state :current-graph-uuid]))
-
-(defn sub-current-file-sync-graph-uuid
-  []
-  (sub [:file-sync/graph-state :current-graph-uuid]))
-
-(defn get-file-sync-state
-  ([]
-   (get-file-sync-state (get-current-file-sync-graph-uuid)))
-  ([graph-uuid]
-   (get-in @state [:file-sync/graph-state graph-uuid :file-sync/sync-state])))
-
-(defn sub-file-sync-state
-  [graph-uuid]
-  (sub [:file-sync/graph-state graph-uuid :file-sync/sync-state]))
-
 (defn reset-parsing-state!
   []
   (set-state! [:graph/parsing-state (get-current-repo)] {}))
@@ -2153,14 +2019,6 @@ Similar to re-frame subscriptions"
   (set-state! :mobile/app-state-change
               {:is-active? is-active?
                :timestamp (inst-ms (js/Date.))}))
-
-(defn get-sync-graph-by-id
-  [graph-uuid]
-  (when graph-uuid
-    (let [graph (first (filter #(= graph-uuid (:GraphUUID %))
-                               (get-repos)))]
-      (when (:url graph)
-        graph))))
 
 (defn unlinked-dir?
   [dir]
@@ -2220,21 +2078,6 @@ Similar to re-frame subscriptions"
      (when (and shape-id (parse-uuid shape-id))
        (. api selectShapes shape-id)
        (. api zoomToSelection)))))
-
-(defn set-user-info!
-  [info]
-  (when info
-    (set-state! :user/info info)
-    (let [groups (:UserGroups info)]
-      (when (seq groups)
-        (storage/set :user-groups groups)))))
-
-(defn get-user-info []
-  (sub :user/info))
-
-(defn clear-user-info!
-  []
-  (storage/remove :user-groups))
 
 (defn get-color-accent []
   (get @state :ui/radix-color))

@@ -15,7 +15,6 @@
             [frontend.handler.notification :as notification]
             [frontend.handler.external :as external-handler]
             [frontend.modules.shortcut.core :as shortcut]
-            [frontend.handler.user :as user-handler]
             [clojure.string :as string]
             [goog.object :as gobj]))
 
@@ -48,7 +47,7 @@
    (cond
      (mobile-util/native-android?)
      [:div.px-4
-      "You can save them in your local storage, and use Logseq Sync or any third-party sync service to keep your notes sync with other devices. "
+      "You can save them in your local storage, and use any third-party sync service to keep your notes sync with other devices. "
       "If you prefer to use Dropbox to sync your notes, you can use "
       [:a {:href   "https://play.google.com/store/apps/details?id=com.ttxapps.dropsync"
            :target "_blank"}
@@ -65,10 +64,8 @@
 (rum/defcs picker < rum/reactive
   [_state onboarding-and-home?]
   (let [parsing? (state/sub :repo/parsing-files?)
-        _ (state/sub :auth/id-token)
         native-ios? (mobile-util/native-ios?)
-        native-icloud? (not (string/blank? (state/sub [:mobile/container-urls :iCloudContainerUrl])))
-        logged? (user-handler/logged-in?)]
+        native-icloud? (not (string/blank? (state/sub [:mobile/container-urls :iCloudContainerUrl])))]
 
     (setups-container
       :picker
@@ -80,7 +77,6 @@
         (if native-ios?
           ;; TODO: open for all native mobile platforms
           (graph-picker/graph-picker-cp {:onboarding-and-home? onboarding-and-home?
-                                         :logged?              logged?
                                          :native-icloud?       native-icloud?})
 
           (if (or (nfs/supported?) (mobile-util/native-platform?))

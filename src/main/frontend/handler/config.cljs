@@ -30,6 +30,18 @@
   (let [path "logseq/config.edn"]
     (repo-config-set-key-value path k v)))
 
+(defn set-preferred-format!
+  [format]
+  (when format
+    (set-config! :preferred-format format)
+    (state/set-preferred-format! format)))
+
+(defn set-preferred-workflow!
+  [workflow]
+  (when workflow
+    (set-config! :preferred-workflow workflow)
+    (state/set-preferred-workflow! workflow)))
+
 (defn toggle-ui-show-brackets! []
   (let [show-brackets? (state/show-brackets?)]
     (set-config! :ui/show-brackets? (not show-brackets?))))

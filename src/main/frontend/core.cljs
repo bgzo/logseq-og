@@ -12,7 +12,6 @@
             [reitit.frontend :as rf]
             [reitit.frontend.easy :as rfe]
             [logseq.api]
-            [frontend.fs.sync :as sync]
             [frontend.config :as config]
             [malli.dev.cljs :as md]))
 
@@ -49,10 +48,7 @@
   (when-let [node (.getElementById js/document "root")]
     (set-router!)
     (rum/mount (page/current-page) node)
-    (display-welcome-message)
-    ;; NO repo state here, better not add init logic here
-    (when config/dev?
-      (js/setTimeout #(sync/<sync-start) 1000))))
+    (display-welcome-message)))
 
 (defn ^:export init []
   ;; init is called ONCE when the page loads
@@ -66,6 +62,4 @@
   ;; stop is called before any code is reloaded
   ;; this is controlled by :before-load in the config
   (handler/stop!)
-  (when config/dev?
-    (sync/<sync-stop))
   (js/console.log "stop"))

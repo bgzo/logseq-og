@@ -1,7 +1,6 @@
 (ns frontend.mobile.util
   (:require ["@capacitor/core" :refer [Capacitor registerPlugin ^js Plugins]]
             ["@capacitor/splash-screen" :refer [SplashScreen]]
-            ["@logseq/capacitor-file-sync" :refer [FileSync]]
             [clojure.string :as string]
             [promesa.core :as p]
             [goog.object :as gobj]))
@@ -30,7 +29,6 @@
 
 ;; NOTE: both iOS and android share the same API
 (when (native-platform?)
-  (defonce file-sync FileSync)
   (defonce fs-watcher (registerPlugin "FsWatcher")))
 
 (defn hide-splash []

@@ -15,8 +15,6 @@
             [frontend.mobile.util :as mobile-util]
             [electron.ipc :as ipc]
             [frontend.config :as config]
-            [frontend.handler.user :as user-handler]
-            [frontend.handler.file-sync :as file-sync-handler]
             [logseq.common.path :as path]))
 
 (defn- delete-page!
@@ -71,13 +69,7 @@
           favorited? (contains? (set (map util/page-name-sanity-lc favorites))
                                 page-name)
           developer-mode? (state/sub [:ui/developer-mode?])
-          file-rpath (when (util/electron?) (page-util/get-page-file-rpath page-name))
-          _ (state/sub :auth/id-token)
-          file-sync-graph-uuid (and (user-handler/logged-in?)
-                                    (file-sync-handler/enable-sync?)
-                                    ;; FIXME: Sync state is not cleared when switching to a new graph
-                                    (file-sync-handler/current-graph-sync-on?)
-                                    (file-sync-handler/get-current-graph-uuid))]
+          file-rpath (when (util/electron?) (page-util/get-page-file-rpath page-name))]
       (when (and page (not block?))
         (->>
          [(when-not config/publishing?
@@ -90,19 +82,9 @@
                            (page-handler/unfavorite-page! page-original-name)
                            (page-handler/favorite-page! page-original-name)))}})
 
-          (when (or (util/electron?) file-sync-graph-uuid)
+          (when (util/electron?)
             {:title   (t :page/version-history)
-             :options {:on-click
-                       (fn []
-                         (cond
-                           file-sync-graph-uuid
-                           (state/pub-event! [:graph/pick-page-histories file-sync-graph-uuid page-name])
-
-                           (util/electron?)
-                           (shell/get-file-latest-git-log page 100)
-
-                           :else
-                           nil))
+             :options {:on-click #(shell/get-file-latest-git-log page 100)
                        :class "cp__btn_history_version"}})
 
           (when (or (util/electron?)
@@ -152,8 +134,7 @@
                          (state/close-modal!))}})
 
           (when (and (util/electron?) file-rpath
-                     (state/get-backup-enabled?)
-                     (not (file-sync-handler/synced-file-graph? repo)))
+                     (state/get-backup-enabled?))
             {:title   (t :page/open-backup-directory)
              :options {:on-click
                        (fn []

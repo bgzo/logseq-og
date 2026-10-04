@@ -28,7 +28,6 @@
             [frontend.handler.repo :as repo-handler]
             [frontend.handler.repo-config :as repo-config-handler]
             [frontend.handler.ui :as ui-handler]
-            [frontend.handler.user :as user-handler]
             [frontend.idb :as idb]
             [frontend.mobile.util :as mobile-util]
             [frontend.modules.instrumentation.core :as instrument]
@@ -202,7 +201,6 @@
 
   (set! js/window.onhashchange #(state/hide-custom-context-menu!)) ;; close context menu when page navs
   (register-components-fns!)
-  (user-handler/restore-tokens-from-localstorage)
   (state/set-db-restoring! true)
   (when (util/electron?)
     (el/listen!))

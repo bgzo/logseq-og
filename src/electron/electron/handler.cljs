@@ -11,12 +11,10 @@
             ["fs-extra" :as fs-extra]
             ["path" :as node-path]
             [cljs-bean.core :as bean]
-            [cljs.reader :as reader]
             [clojure.core.async :as async]
             [clojure.string :as string]
             [electron.backup-file :as backup-file]
             [electron.configs :as cfgs]
-            [electron.file-sync-rsapi :as rsapi]
             [electron.find-in-page :as find]
             [electron.fs-watcher :as watcher]
             [electron.git :as git]
@@ -251,30 +249,6 @@
 
 (defmethod handle :getGraphs [_window [_]]
   (get-graphs))
-
-(defn- read-txid-info!
-  [root]
-  (try
-    (let [txid-path (.join node-path root "logseq/graphs-txid.edn")]
-      (when (fs/existsSync txid-path)
-        (when-let [sync-meta (and (not (string/blank? root))
-                                  (.toString (.readFileSync fs txid-path)))]
-          (reader/read-string sync-meta))))
-    (catch :default e
-      (logger/error "[read txid meta] #" root (.-message e)))))
-
-(defmethod handle :inflateGraphsInfo [_win [_ graphs]]
-  (if (seq graphs)
-    (for [{:keys [root] :as graph} graphs]
-      (if-let [sync-meta (read-txid-info! root)]
-        (assoc graph
-               :sync-meta sync-meta
-               :GraphUUID (second sync-meta))
-        graph))
-    []))
-
-(defmethod handle :readGraphTxIdInfo [_win [_ root]]
-  (read-txid-info! root))
 
 (defn- get-graph-path
   [graph-name]
@@ -693,58 +667,6 @@
 (defmethod handle :theme-loaded [^js win]
   (.manage (windowStateKeeper) win)
   (.show win))
-
-;;;;;;;;;;;;;;;;;;;;;;;
-;; file-sync-rs-apis ;;
-;;;;;;;;;;;;;;;;;;;;;;;
-
-(defmethod handle :key-gen [_]
-  (rsapi/key-gen))
-
-(defmethod handle :set-env [_ args]
-  (apply rsapi/set-env (rest args)))
-
-(defmethod handle :get-local-files-meta [_ args]
-  (apply rsapi/get-local-files-meta (rest args)))
-
-(defmethod handle :get-local-all-files-meta [_ args]
-  (apply rsapi/get-local-all-files-meta (rest args)))
-
-(defmethod handle :rename-local-file [_ args]
-  (apply rsapi/rename-local-file (rest args)))
-
-(defmethod handle :delete-local-files [_ args]
-  (apply rsapi/delete-local-files (rest args)))
-
-(defmethod handle :fetch-remote-files [_ args]
-  (apply rsapi/fetch-remote-files (rest args)))
-
-(defmethod handle :update-local-files [_ args]
-  (apply rsapi/update-local-files (rest args)))
-
-(defmethod handle :download-version-files [_ args]
-  (apply rsapi/download-version-files (rest args)))
-
-(defmethod handle :delete-remote-files [_ args]
-  (apply rsapi/delete-remote-files (rest args)))
-
-(defmethod handle :update-remote-files [_ args]
-  (apply rsapi/update-remote-files (rest args)))
-
-(defmethod handle :decrypt-fnames [_ args]
-  (apply rsapi/decrypt-fnames (rest args)))
-
-(defmethod handle :encrypt-fnames [_ args]
-  (apply rsapi/encrypt-fnames (rest args)))
-
-(defmethod handle :encrypt-with-passphrase [_ args]
-  (apply rsapi/encrypt-with-passphrase (rest args)))
-
-(defmethod handle :decrypt-with-passphrase [_ args]
-  (apply rsapi/decrypt-with-passphrase (rest args)))
-
-(defmethod handle :cancel-all-requests [_ args]
-  (apply rsapi/cancel-all-requests (rest args)))
 
 (defmethod handle :default [args]
   (logger/error "Error: no ipc handler for:" args))
