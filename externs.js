@@ -144,6 +144,9 @@ dummy.parent = function() {};
 // silently stops working in release builds.
 dummy.onBeforeSendHeaders = function() {};
 dummy.requestHeaders = function() {};
+// Read when the tracker logs an attributed preflight with no
+// Access-Control-Request-Headers to echo.
+dummy.method = function() {};
 dummy.velocityDecay = function() {};
 dummy.velocityDecay = function() {};
 dummy.updatePosition = function() {};

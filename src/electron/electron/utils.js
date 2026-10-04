@@ -494,14 +494,15 @@ export const rememberPluginRequest = (id, acrh = '') => {
 }
 
 /**
- * Attach the preflight header names from onBeforeSendHeaders to an already
- * tracked request. Returns false for a request that was never attributed, so
- * the caller cannot widen the relaxation by recording headers for anything else.
+ * Attach the preflight header names captured in onBeforeSendHeaders to an
+ * already tracked request. Returns false for a request that was never
+ * attributed, so the caller cannot widen the relaxation by recording headers
+ * for anything else.
  */
-export const rememberPluginRequestHeaders = (id, headers) => {
+export const rememberPluginRequestHeaders = (id, acrh) => {
   const entry = pluginRequestIds.get(id)
   if (!entry) return false
-  entry.acrh = acrhFromRequestHeaders(headers)
+  entry.acrh = typeof acrh === 'string' ? acrh : ''
   return true
 }
 
@@ -574,7 +575,7 @@ const installBeforeRequestTracker = (win) => {
     (d, c) => {
       if (pluginRequestIds.has(d.id)) {
         const acrh = acrhFromRequestHeaders(d.requestHeaders)
-        rememberPluginRequestHeaders(d.id, d.requestHeaders)
+        rememberPluginRequestHeaders(d.id, acrh)
         // An attributed preflight with nothing to echo falls back to `*`, which
         // cannot carry Authorization. Leave a trace so a future change in how
         // Chromium classifies preflights is diagnosable instead of silently

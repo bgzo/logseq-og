@@ -398,10 +398,10 @@ describe('Access-Control-Request-Headers capture', () => {
   })
 
   test('only attaches headers to an already-attributed request', () => {
-    assert.equal(rememberPluginRequestHeaders(7, { 'access-control-request-headers': 'X' }), false)
+    assert.equal(rememberPluginRequestHeaders(7, 'X'), false)
 
     rememberPluginRequest(7)
-    assert.equal(rememberPluginRequestHeaders(7, { 'access-control-request-headers': 'X' }), true)
+    assert.equal(rememberPluginRequestHeaders(7, 'X'), true)
 
     const d = { id: 7, responseHeaders: {} }
     relaxCorsForPluginFrames(d)
@@ -521,7 +521,9 @@ describe('compiled release output (guard)', () => {
       // Read off details.frame when a plugin request is attributed. Renaming
       // either leaves frameUrl empty and no request is ever relaxed.
       'url',
-      'parent'
+      'parent',
+      // Read for the attributed-preflight diagnostic.
+      'method'
     ]) {
       assert.ok(
         !new RegExp(`\\.\\$${name}\\$`).test(s),
