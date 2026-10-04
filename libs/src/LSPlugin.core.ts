@@ -17,6 +17,7 @@ import {
   safetyPathJoin,
   path,
   safetyPathNormalize,
+  isPathInside,
   mergeSettingsWithSchema,
   IS_DEV,
   cleanInjectedScripts,
@@ -1043,9 +1044,7 @@ class PluginLocal extends EventEmitter<
   }
 
   get isInstalledInDotRoot() {
-    const dotRoot = this.dotConfigRoot
-    const plgRoot = this.localRoot
-    return dotRoot && plgRoot && plgRoot.startsWith(dotRoot)
+    return isPathInside(this.localRoot, this.dotConfigRoot)
   }
 
   get loaded() {
@@ -1344,17 +1343,6 @@ class LSPluginCore
         )
       }
 
-      // `options.url` is the raw package path while `dotConfigRoot` is already
-      // normalized, so compare normalized forms: on Windows separators and
-      // drive-letter case can differ between the two strings, and a false
-      // "external" verdict would pollute preferences.json with a dot-root path.
-      const dotRoot = path.normalize(this._options.dotConfigRoot || '')
-      const isWin = path.sep === '\\'
-      const norm = (p: string) =>
-        isWin ? path.normalize(p).toLowerCase() : path.normalize(p)
-      const isDotRootPlugin = (u: string) =>
-        Boolean(dotRoot && norm(u).startsWith(norm(dotRoot)))
-
       for (const pluginOptions of plugins) {
         const { url } = pluginOptions as PluginLocalOptions
         const pluginLocal = new PluginLocal(
@@ -1370,8 +1358,10 @@ class LSPluginCore
         // Persist only a root that is not already recorded -- one already in
         // preferences.json was seeded by main at startup, and rewriting the
         // whole file once per external plugin would stall registration.
-        if (!isDotRootPlugin(url) && !externals.has(url)) {
+        let preSaved = false
+        if (!pluginLocal.isInstalledInDotRoot && !externals.has(url)) {
           externals.add(url)
+          preSaved = true
           await this.saveUserPreferences({ externals: Array.from(externals) })
         }
 
@@ -1389,17 +1379,18 @@ class LSPluginCore
 
           this.emit('error', loadErr)
 
-          if (loadErr instanceof IllegalPluginPackageError) {
-            // The root was persisted before mounting so the frame could load;
-            // the package is invalid, so drop it again -- otherwise every
-            // startup retries it and re-logs the same failure.
-            externals.delete(url)
-          }
-
           if (
             loadErr instanceof IllegalPluginPackageError ||
             loadErr instanceof ExistedImportedPluginPackageError
           ) {
+            if (preSaved) {
+              // Roll back the root written just so the frame could try to
+              // load: only a plugin that actually registers should stay in
+              // preferences.json, or validate_external_plugins retries and
+              // re-logs it on every startup.
+              externals.delete(url)
+            }
+
             // TODO: notify global log system?
             continue
           }

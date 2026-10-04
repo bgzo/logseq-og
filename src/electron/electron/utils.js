@@ -573,7 +573,17 @@ const installBeforeRequestTracker = (win) => {
     { urls: ['http://*/*', 'https://*/*'] },
     (d, c) => {
       if (pluginRequestIds.has(d.id)) {
+        const acrh = acrhFromRequestHeaders(d.requestHeaders)
         rememberPluginRequestHeaders(d.id, d.requestHeaders)
+        // An attributed preflight with nothing to echo falls back to `*`, which
+        // cannot carry Authorization. Leave a trace so a future change in how
+        // Chromium classifies preflights is diagnosable instead of silently
+        // reproducing the failure this capture exists to fix.
+        if (!acrh && d.method === 'OPTIONS') {
+          console.debug(
+            '[plugin-cors] attributed preflight without Access-Control-Request-Headers; ACAH falls back to *'
+          )
+        }
       }
 
       if (YOUTUBE_RE.test(d.url)) {
