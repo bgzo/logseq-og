@@ -8,6 +8,10 @@ const config: PlaywrightTestConfig = {
   // The number of retries before marking a test as failed.
   maxFailures: 1,
 
+  // App startup and graph parsing can exceed the default 30s on slow CI
+  // runners; hooks (e.g. the shared beforeAll) share this timeout.
+  timeout: 120_000,
+
   // The number of Logseq instances to run in parallel.
   // NOTE: must be 1 for now, otherwise tests will fail.
   workers: 1,

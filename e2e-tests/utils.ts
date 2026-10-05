@@ -130,6 +130,15 @@ export async function loadLocalGraph(page: Page, path: string): Promise<void> {
 
   const onboardingOpenButton = page.locator('strong:has-text("Choose a folder")')
 
+  // A fresh CI profile always starts on the onboarding screen, but the app UI
+  // can take a while to mount on slow runners. isVisible() does not wait, so
+  // give the UI a bounded head start before deciding between onboarding and
+  // the manual graph-switch path below (which would otherwise hang waiting on
+  // #left-sidebar and hit the hook timeout).
+  await onboardingOpenButton
+    .waitFor({ state: 'visible', timeout: 60_000 })
+    .catch(() => console.log('Onboarding button not visible after 60s'))
+
   if (await onboardingOpenButton.isVisible()) {
     await onboardingOpenButton.click()
   } else {
