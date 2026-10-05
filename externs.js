@@ -122,6 +122,13 @@ dummy.commit = function() {};
 dummy.raw = function() {};
 dummy.onHeadersReceived = function() {};
 dummy.responseHeaders = function() {};
+// Session.webRequest itself. Missing this extern renamed the property, so
+// `.webRequest` compiled to `.$webRequest$` (undefined on the real session) and
+// disableXFrameOptions threw before *setup-fn was assigned -- the 'main' IPC
+// channel never registered and the renderer came up blank, release builds only.
+// Externing the event names below is not enough if the object holding them is
+// renamed.
+dummy.webRequest = function() {};
 // Electron webRequest names used by the plugin CORS policy in
 // src/electron/electron/utils.js. Without these, advanced-mode property renaming
 // mangles them and the call fails at runtime with "$onBeforeRequest$ is not a

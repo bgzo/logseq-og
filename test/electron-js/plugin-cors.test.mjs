@@ -512,6 +512,10 @@ describe('compiled release output (guard)', () => {
     if (!s) return
     if (!isPseudoNamed(s)) return
     for (const name of [
+      // The Session property holding the event registration API. It was renamed
+      // to `.$webRequest$` because externs.js only listed the event names, and
+      // that undefined object aborted the 'ready' handler at startup.
+      'webRequest',
       'onBeforeRequest',
       'onBeforeSendHeaders',
       'onHeadersReceived',
@@ -531,5 +535,11 @@ describe('compiled release output (guard)', () => {
           'at runtime and aborts app setup before the main IPC channel registers'
       )
     }
+    // The absence check above would also pass if the property disappeared from
+    // the output entirely, so require the unmangled read to still be there.
+    assert.ok(
+      /\.webRequest\b/.test(s),
+      'compiled output has no `.webRequest` read -- the listener installation vanished'
+    )
   })
 })

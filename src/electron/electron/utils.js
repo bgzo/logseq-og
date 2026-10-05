@@ -639,6 +639,18 @@ export const relaxCorsForPluginFrames = (d) => {
   d.responseHeaders['Access-Control-Expose-Headers'] = ['*']
 }
 export const disableXFrameOptions = (win) => {
+  try {
+    installXFrameOptionsRelaxer(win)
+  } catch (e) {
+    // Same startup-ordering hazard as trackPluginFrameRequests above: a throw
+    // here aborts the 'ready' handler before *setup-fn is assigned, so the
+    // 'main' IPC channel never registers and the renderer comes up blank.
+    // Degrade to "no CORS relaxation" instead of taking the app down.
+    console.error('[plugin-cors] CORS header relaxation not installed:', e)
+  }
+}
+
+const installXFrameOptionsRelaxer = (win) => {
   win.webContents.session.webRequest.onHeadersReceived((d, c) => {
     relaxCorsForPluginFrames(d)
 
