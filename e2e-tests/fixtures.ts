@@ -80,6 +80,13 @@ base.beforeAll(async () => {
 
   page = await electronApp.firstWindow()
 
+  // The main process creates the window first and then navigates it to the
+  // app document (lsp://...). firstWindow() can return while that initial
+  // navigation is still in flight, and page.evaluate() during it fails with
+  // "Execution context was destroyed, most likely because of a navigation".
+  // Wait for the app document so every page.evaluate() below runs in it.
+  await page.waitForURL((url) => url.protocol !== 'about:', { timeout: 30_000 })
+
   // inject testing flags
   await page.evaluate(
     () => {
