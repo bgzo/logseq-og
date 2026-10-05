@@ -2,11 +2,11 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [main]
     paths-ignore:
       - '*.md'
   pull_request:
-    branches: [master]
+    branches: [main]
     paths-ignore:
       - '*.md'
 
@@ -81,6 +81,14 @@ jobs:
         run: |
           yarn cljs:test
           node static/tests.js
+
+      - name: Build release Electron bundle for the compiled-output guards
+        # test/electron-js guards only inspect static/electron.js when it is a
+        # pseudo-named release build; a dev compile leaves them nothing to match
+        # on and they skip. Without this build step the guards are skipped in CI
+        # too -- the renamed session.webRequest that blanked release builds
+        # slipped through exactly that gap.
+        run: clojure -M:cljs release electron --debug
 
       - name: Run Electron main-process tests
         # The asset-protocol suite boots a real Electron, which needs a display
