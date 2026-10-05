@@ -137,7 +137,19 @@ export async function loadLocalGraph(page: Page, path: string): Promise<void> {
   // #left-sidebar and hit the hook timeout).
   await onboardingOpenButton
     .waitFor({ state: 'visible', timeout: 60_000 })
-    .catch(() => console.log('Onboarding button not visible after 60s'))
+    .catch(async () => {
+      const diagnostics = await page
+        .evaluate(() => ({
+          url: location.href,
+          title: document.title,
+          readyState: document.readyState,
+          rootHtmlLength: document.getElementById('root')?.innerHTML.length ?? -1,
+          rootHtmlHead: document.getElementById('root')?.innerHTML.slice(0, 500) ?? '',
+          bodyTextHead: document.body?.innerText?.slice(0, 500) ?? '',
+        }))
+        .catch((e) => `evaluate failed: ${e}`)
+      console.log('Onboarding button not visible after 60s:', JSON.stringify(diagnostics))
+    })
 
   if (await onboardingOpenButton.isVisible()) {
     await onboardingOpenButton.click()
