@@ -51,10 +51,6 @@ jobs:
       - name: Setup build tools
         run: brew install fastlane
 
-      - name: Set Build Environment Variables
-        run: |
-          echo "ENABLE_FILE_SYNC_PRODUCTION=true" >> $GITHUB_ENV
-
       - name: Compile CLJS
         run: yarn install && yarn release-app
         env:

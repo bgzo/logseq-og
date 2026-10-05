@@ -177,11 +177,6 @@
                 parts (remove #(string/blank? %) parts)]
             (util/string-join-path (reverse parts))))))))
 
-(rum/defcs asset-loader
-  < rum/reactive
-  [_state _src content-fn]
-  (content-fn))
-
 (defn open-lightbox
   [e]
   (let [images (js/document.querySelectorAll ".asset-container img")
@@ -340,12 +335,10 @@
 
         (cond
           (contains? config/audio-formats ext)
-          (asset-loader @src
-                        #(audio-cp @src))
+          (audio-cp @src)
 
           (contains? (gp-config/img-formats) ext)
-          (asset-loader @src
-                        #(resizable-image config title @src metadata full_text true))
+          (resizable-image config title @src metadata full_text true)
 
           (contains? (gp-config/text-formats) ext)
           [:a.asset-ref.is-plaintext {:href (rfe/href :file {:path path})

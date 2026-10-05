@@ -64,10 +64,6 @@ jobs:
         with:
           cli: ${{ env.CLOJURE_VERSION }}
 
-      - name: Set Build Environment Variables
-        run: |
-          echo "ENABLE_FILE_SYNC_PRODUCTION=true" >> $GITHUB_ENV
-
       - name: Compile CLJS
         run: yarn install && yarn release-app
 

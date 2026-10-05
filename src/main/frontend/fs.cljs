@@ -230,14 +230,6 @@
     (fn [stat] (not (nil? stat)))
     (fn [_e] false))))
 
-(defn asset-href-exists?
-  "href is from `make-asset-url`, so it's most likely a full-path"
-  [href]
-  (p/let [repo-dir (config/get-repo-dir (state/get-current-repo))
-          rpath (path/relative-path repo-dir href)
-          exist? (file-exists? repo-dir rpath)]
-    exist?))
-
 (defn asset-path-normalize
   [path]
   (cond

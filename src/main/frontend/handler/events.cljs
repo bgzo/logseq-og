@@ -78,9 +78,6 @@
   (when-let [dir-name (config/get-repo-dir repo)]
     (fs/watch-dir! dir-name)))
 
-(defmethod handle :graph/unlinked [_repo _current-repo]
-  nil)
-
 ;; FIXME(andelf): awful multi-arty function.
 ;; Should use a `-impl` function instead of the awful `skip-ios-check?` param with nested callback.
 (defn- graph-switch

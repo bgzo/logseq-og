@@ -127,10 +127,7 @@
   logseq.tasks.lang/list-missing
 
   lang:validate-translations
-  logseq.tasks.lang/validate-translations
-
-  file-sync:integration-tests
-  logseq.tasks.file-sync/integration-tests}
+  logseq.tasks.lang/validate-translations}
 
  :tasks/config
  {:large-vars

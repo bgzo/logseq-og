@@ -46,10 +46,7 @@
                   :class "tippy-hover"
                   :interactive true}
                  [:a.text-gray-400.ml-4.font-medium.text-sm.whitespace-nowrap
-                  {:on-click (fn []
-                               (let [current-repo (state/get-current-repo)]
-                                 (repo-handler/remove-repo! repo)
-                                 (state/pub-event! [:graph/unlinked repo current-repo])))}
+                  {:on-click #(repo-handler/remove-repo! repo)}
                   "Unlink"])]]]))
 
 (rum/defc repos < rum/reactive
