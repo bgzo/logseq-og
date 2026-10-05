@@ -61,6 +61,13 @@ base.beforeAll(async () => {
     locale: 'en',
     timeout: 10_000, // should be enough for the app to start
   })
+
+  // Forward the Electron main process output: startup failures happen before
+  // any window exists, where Playwright's page events cannot see them.
+  const electronProcess = electronApp.process()
+  electronProcess.stdout?.on('data', (data) => console.log(`[electron] ${data}`))
+  electronProcess.stderr?.on('data', (data) => console.log(`[electron] ${data}`))
+
   context = electronApp.context()
   await context.tracing.start({ screenshots: true, snapshots: true });
   await context.tracing.startChunk();
@@ -80,6 +87,20 @@ base.beforeAll(async () => {
 
   page = await electronApp.firstWindow()
 
+  // Attach before the initial navigation settles so boot-time console output,
+  // page errors and failed asset loads are captured too.
+  page.on('console', consoleLogWatcher)
+  page.on('crash', () => {
+    expect(false, "Page must not crash").toBeTruthy()
+  })
+  page.on('pageerror', (err) => {
+    console.log('[pageerror]', err)
+    // expect(false, 'Page must not have errors!').toBeTruthy()
+  })
+  page.on('requestfailed', (request) => {
+    console.log(`[requestfailed] ${request.url()} - ${request.failure()?.errorText}`)
+  })
+
   // The main process creates the window first and then navigates it to the
   // app document (lsp://...). firstWindow() can return while that initial
   // navigation is still in flight, and page.evaluate() during it fails with
@@ -95,16 +116,6 @@ base.beforeAll(async () => {
       })
     },
   )
-
-  // Direct Electron console to watcher
-  page.on('console', consoleLogWatcher)
-  page.on('crash', () => {
-    expect(false, "Page must not crash").toBeTruthy()
-  })
-  page.on('pageerror', (err) => {
-    console.log(err)
-    // expect(false, 'Page must not have errors!').toBeTruthy()
-  })
 
   await page.waitForLoadState('domcontentloaded')
   // NOTE: The following ensures first start.
