@@ -1,9 +1,8 @@
 (ns frontend.mobile.util
-  (:require ["@capacitor/core" :refer [Capacitor registerPlugin ^js Plugins]]
+  (:require ["@capacitor/core" :refer [Capacitor registerPlugin]]
             ["@capacitor/splash-screen" :refer [SplashScreen]]
             [clojure.string :as string]
-            [promesa.core :as p]
-            [goog.object :as gobj]))
+            [promesa.core :as p]))
 
 (defn platform []
   (.getPlatform Capacitor))
@@ -101,10 +100,3 @@
   "Check whether `path' is iCloud container path on iOS"
   [path]
   (re-matches #"/iCloud~com~logseq~logseq/Documents/?$" path))
-
-(defn app-active?
-  "Whether the app is active. This function returns a promise."
-  []
-  (let [app ^js (gobj/get Plugins "App")]
-    (p/let [state (.getState app)]
-      (gobj/get state "isActive"))))

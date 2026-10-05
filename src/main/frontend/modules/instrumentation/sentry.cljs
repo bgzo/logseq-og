@@ -62,8 +62,3 @@
   (when (and (not config/dev?) (not-empty SENTRY-DSN))
     (let [config (clj->js config)]
       (Sentry/init config))))
-
-(defn set-user!
-  [id]
-  (Sentry/configureScope (fn [scope]
-                           (.setUser scope #js {:id id}))))

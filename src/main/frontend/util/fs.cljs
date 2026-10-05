@@ -6,9 +6,7 @@
             [frontend.util :as util]
             [logseq.graph-parser.util :as gp-util]
             [clojure.string :as string]
-            [frontend.state :as state]
-            [frontend.fs :as fs]
-            [frontend.config :as config]))
+            [frontend.state :as state]))
 
 ;; NOTE: This is not the same ignored-path? as src/electron/electron/utils.cljs.
 ;;       The assets directory is ignored.
@@ -41,11 +39,6 @@
           (not
            (some #(string/ends-with? path %)
                  [".md" ".markdown" ".org" ".js" ".edn" ".css"]))))))))
-
-(defn read-repo-file
-  [repo-url file-rpath]
-  (when-let [repo-dir (config/get-repo-dir repo-url)]
-    (fs/read-file repo-dir file-rpath)))
 
 (def multiplatform-reserved-chars ":\\*\\?\"<>|\\#\\\\")
 

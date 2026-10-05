@@ -25,7 +25,6 @@
             [logseq.graph-parser :as graph-parser]
             [logseq.graph-parser.config :as gp-config]
             [electron.ipc :as ipc]
-            [cljs-bean.core :as bean]
             [clojure.core.async :as async]
             [medley.core :as medley]
             [logseq.common.path :as path]
@@ -465,35 +464,6 @@
   [graph]
   (p/let [_ (ipc/ipc "broadcastPersistGraph" graph)] ;; invoke for chaining promise
     nil))
-
-(defn get-repos
-  []
-  (p/let [nfs-dbs (db-persist/get-all-graphs)
-          nfs-dbs (map (fn [db]
-                         {:url db
-                          :root (config/get-local-dir db)
-                          :nfs? true}) nfs-dbs)
-          nfs-dbs (seq (bean/->clj nfs-dbs))]
-    (cond
-      (seq nfs-dbs)
-      nfs-dbs
-
-      :else
-      [{:url config/local-repo
-        :example? true}])))
-
-(defn get-detail-graph-info
-  [url]
-  (when url
-    (first (filter #(when-let [url' (:url %)]
-                      (= url url'))
-                   (state/get-repos)))))
-
-(defn refresh-repos!
-  []
-  (p/let [repos (get-repos)]
-    (state/set-repos! repos)
-    repos))
 
 (defn graph-ready!
   ;; FIXME: Call electron that the graph is loaded, an ugly implementation for redirect to page when graph is restored

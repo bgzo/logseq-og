@@ -112,10 +112,6 @@
     true
     (cfgs/get-item :feature/enable-automatic-chmod?)))
 
-(defmethod handle :copyFile [_window [_ _repo from-path to-path]]
-  (logger/info ::copy-file from-path to-path)
-  (fs-extra/copy from-path to-path))
-
 (defmethod handle :writeFile [window [_ repo path content]]
   (let [^js Buf (.-Buffer buffer)
         ^js content (if (instance? js/ArrayBuffer content)

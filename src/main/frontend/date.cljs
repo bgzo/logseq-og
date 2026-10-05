@@ -220,10 +220,6 @@
    (tf/formatter "yyyy-MM-dd HH:mm")
    (t/to-default-time-zone (tc/from-long n))))
 
-(def iso-parser (tf/formatter "yyyy-MM-dd'T'HH:mm:ss.SSSS'Z'"))
-(defn parse-iso [string]
-  (tf/parse iso-parser string))
-
 (comment
   (def default-formatter (tf/formatter "MMM do, yyyy"))
   (def zh-formatter (tf/formatter "YYYY年MM月dd日"))

@@ -7,10 +7,7 @@
             [frontend.util :as util]
             [logseq.common.path :as path]
             [logseq.graph-parser.config :as gp-config]
-            [logseq.graph-parser.util :as gp-util]
-            [shadow.resource :as rc]
-            [goog.crypt.Md5]
-            [goog.crypt :as crypt]))
+            [shadow.resource :as rc]))
 
 (goog-define DEV-RELEASE false)
 (defonce dev-release? DEV-RELEASE)
@@ -313,9 +310,6 @@
 (def export-css-file "export.css")
 (def custom-js-file "custom.js")
 (def config-default-content (rc/inline "templates/config.edn"))
-(def config-default-content-md5 (let [md5 (new crypt/Md5)]
-                                  (.update md5 (crypt/stringToUtf8ByteArray config-default-content))
-                                  (crypt/byteArrayToHex (.digest md5))))
 
 ;; NOTE: repo-url is the unique identifier of a repo.
 ;; - `local` => in-memory demo graph
@@ -382,25 +376,6 @@
       (str "/"
            (->> (take-last 2 (string/split repo-url #"/"))
                 (string/join "_"))))))
-
-(defn get-string-repo-dir
-  [repo-dir]
-  (if (mobile-util/native-ios?)
-    (str (if (mobile-util/in-iCloud-container-path? repo-dir)
-           "iCloud"
-           (cond (mobile-util/native-iphone?)
-                 "On My iPhone"
-
-                 (mobile-util/native-ipad?)
-                 "On My iPad"
-
-                 :else
-                 "Local"))
-         (->> (string/split repo-dir "Documents/")
-              last
-              gp-util/safe-decode-uri-component
-              (str "/" (string/capitalize app-name) "/")))
-    (get-repo-dir (get-local-repo repo-dir))))
 
 (defn get-repo-fpath
   [repo-url path]
