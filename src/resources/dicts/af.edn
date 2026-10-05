@@ -56,8 +56,6 @@
  :download "Laai af"
  :language "Taal"
 
- :file-sync/other-user-graph "Huidige plaaslike grafiek is gebonde aan ander gebruiker se afgeleë grafiek. So kan nie begin om te sinkroniseer nie."
- :file-sync/graph-deleted "Huidige afstandgrafiek is geskrap"
 
  :shortcut.category/formatting           "Formatering"
  :command.editor/indent                  "Ingekeepte blok oortjie"

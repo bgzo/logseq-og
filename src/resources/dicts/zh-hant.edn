@@ -182,10 +182,6 @@
  :settings-page/enable-flashcards "啟用卡片"
  :settings-page/network-proxy "網路代理"
  :settings-page/filename-format "文件名稱格式"
- :settings-page/alpha-features "Alpha 功能"
- :settings-page/beta-features "Beta 功能"
- :settings-page/login-prompt "你必須是 Logseq 的 Open Collective Sponsor 或 Backer 以使用新功能。（需要登入）"
- :settings-page/sync "同步"
  :settings-page/enable-whiteboards "啟用白板"
  :yes "是"
 
@@ -241,8 +237,6 @@
  :help-shortcut-title "點擊查看快捷鍵和其他提示。"
  :parsing-files "爬取資料"
  :loading-files "讀取資料"
- :login "登入"
- :logout "登出"
  :download "下載"
  :language "語言"
  :remove-background "移除背景"
@@ -305,8 +299,6 @@
  :select.graph/empty-placeholder-description "沒有符合的圖表，您要新增另一個嗎？"
  :select.graph/add-graph "是，新增圖表"
 
- :file-sync/other-user-graph "目前的圖表正在和其他遠端使用者共用，因此無法同步。"
- :file-sync/graph-deleted "目前的遠端圖表已經被刪除"
 
  :notification/clear-all "清除所有通知"
 

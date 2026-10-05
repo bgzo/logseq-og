@@ -239,11 +239,8 @@
  :settings-page/network-proxy "网络代理"
  :settings-page/filename-format "文件名格式"
  :settings-page/edit-setting "编辑"
- :settings-page/login-prompt "你必须是 Logseq 的 Open Collective Sponsor 或者 Backer 才能提前使用新功能（仍在测试中），因此需要登录。"
- :settings-page/alpha-features "Alpha 功能"
  :settings-page/custom-global-configuration "自定义全局配置"
  :settings-page/edit-global-config-edn "编辑全局 config.edn"
- :settings-page/sync "同步"
  :settings-permission/start-granting "开始授权"
  :settings-page/auto-chmod "自动更改文件权限"
  :settings-page/auto-chmod-desc "禁用此功能可以允许多个用户在拥有用户组权限的情况下编辑文件。"
@@ -296,8 +293,6 @@
  :loading "加载中..."
  :parsing-files "正在解析文件"
  :loading-files "正在加载文件"
- :login "登录"
- :logout "登出"
  :download "下载"
  :language "语言"
  :remove-background "去除背景"
@@ -467,10 +462,6 @@
  :paginates/prev "上一页"
  :paginates/next "下一页"
 
- :file-sync/other-user-graph "当前本地图谱绑定在其他用户的远程图谱上。因此无法启动同步。"
- :file-sync/graph-deleted "当前远程图谱已经删除"
- :file-sync/rsapi-cannot-upload-err "无法同步，请检查本机时间是否准确"
- :file-sync/connectivity-testing-failed "网络连接检查失败，请检查网络设置。测试URLs: "
 
  :notification/clear-all "清除全部通知"
 
