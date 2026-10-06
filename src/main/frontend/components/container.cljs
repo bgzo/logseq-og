@@ -267,17 +267,21 @@
      ;; as favorites/recent items.
      [:a.cursor-pointer.flex.items-center
       {:title full-name
-       :style {:padding-left (str (+ 8 (* depth 12)) "px")}
+       :style {:padding-left (str (+ 24 (* depth 12)) "px")}
        :on-click (fn [_e] (route-handler/redirect-to-page! (:name node)))}
-      (if (seq children)
-        [:span {:class "flex justify-center w-4 opacity-50"
+      [:span.page-icon.ml-3.justify-center (get-page-icon entity)]
+      [:span.page-title label]
+      (when (seq children)
+        ;; Right-aligned like the favorites/recent section chevrons; the
+        ;; left-pointing icon rotates down once expanded.
+        [:span {:class "flex justify-center ml-2 opacity-40"
                 :on-click (fn [e]
                             (util/stop e)
                             (state/toggle-navigation-item-collapsed! collapsed-key))}
-         (ui/icon (if collapsed? "chevron-right" "chevron-down") {:size 14})]
-        [:span {:class "w-4"}])
-      [:span.page-icon.ml-3.justify-center (get-page-icon entity)]
-      [:span.page-title label]]
+         (ui/icon "chevron-left"
+                  {:size 14
+                   :style (when-not collapsed?
+                            {:transform "rotate(-90deg)"})})])]
      (when (and (seq children) (not collapsed?))
        [:ul
         (for [child children]
