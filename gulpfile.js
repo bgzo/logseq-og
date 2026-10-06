@@ -153,7 +153,7 @@ const common = {
   }
 }
 
-exports.electron = () => {
+exports.electron = (done) => {
   if (!fs.existsSync(path.join(outputPath, 'node_modules'))) {
     cp.execSync('yarn', {
       cwd: outputPath,
@@ -165,6 +165,10 @@ exports.electron = () => {
     cwd: outputPath,
     stdio: 'inherit'
   })
+
+  // Gulp 4 treats a task returning undefined as incomplete. Without done()
+  // quitting the app exits with "did not complete" and status 1.
+  done()
 }
 
 exports.electronMaker = async () => {
