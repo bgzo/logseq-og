@@ -279,7 +279,10 @@
                   :class "flex justify-center ml-2 opacity-40"
                   :style {:border "none" :background "transparent"
                           :padding 0 :cursor "pointer"}
-                  :aria-label full-name
+                  :aria-label (str (if collapsed?
+                                     (t :left-side-bar/expand)
+                                     (t :left-side-bar/collapse))
+                                   " " full-name)
                   :aria-expanded (not collapsed?)
                   :on-click (fn [e]
                               (util/stop e)
@@ -295,24 +298,23 @@
 
 (rum/defc namespaces < rum/reactive db-mixins/query
   [t]
-  (when (state/enable-namespaces?)
-    (let [relations (some-> (db/react-query (state/get-current-repo)
-                                            {:query db-model/namespace-relations-query}
-                                            {})
-                            util/react)
-          forest (db-model/get-namespace-forest relations)]
-      (when (seq forest)
-        (nav-content-item
-         [:a.flex.items-center.text-sm.font-medium.rounded-md.wrap-th
-          (ui/icon "sitemap" {:size 16})
-          [:strong.flex-1.ml-2 (string/upper-case (t :left-side-bar/nav-namespaces))]]
+  (let [relations (some-> (db/react-query (state/get-current-repo)
+                                          {:query db-model/namespace-relations-query}
+                                          {})
+                          util/react)
+        forest (db-model/get-namespace-forest relations)]
+    (when (seq forest)
+      (nav-content-item
+       [:a.flex.items-center.text-sm.font-medium.rounded-md.wrap-th
+        (ui/icon "sitemap" {:size 16})
+        [:strong.flex-1.ml-2 (string/upper-case (t :left-side-bar/nav-namespaces))]]
 
-         {:class "namespaces"
-          :count (count forest)}
+       {:class "namespaces"
+        :count (count forest)}
 
-         [:ul.text-sm
-          (for [node forest]
-            (rum/with-key (namespace-node node 0) (:name node)))])))))
+       [:ul.text-sm
+        (for [node forest]
+          (rum/with-key (namespace-node node 0) (:name node)))]))))
 
 (rum/defcs flashcards < db-mixins/query rum/reactive
   {:did-mount (fn [state]
@@ -391,7 +393,7 @@
    {}))
 
 (rum/defc ^:large-vars/cleanup-todo sidebar-nav
-  [route-match close-modal-fn left-sidebar-open? enable-whiteboards? srs-open?
+  [route-match close-modal-fn left-sidebar-open? enable-whiteboards? enable-namespaces? srs-open?
    *closing? close-signal touching-x-offset]
   (let [[local-closing? set-local-closing?] (rum/use-state false)
         [el-rect set-el-rect!] (rum/use-state nil)
@@ -532,7 +534,7 @@
         {:on-scroll on-contents-scroll}
         (favorites t)
 
-        (when (not config/publishing?)
+        (when (and (not config/publishing?) enable-namespaces?)
           (namespaces t))
 
         (when (not config/publishing?)
@@ -604,6 +606,7 @@
         *touch-state         (::touch-state s)
         *close-signal        (::close-signal s)
         enable-whiteboards?  (state/enable-whiteboards?)
+        enable-namespaces?   (state/enable-namespaces?)
         touch-point-fn       (fn [^js e] (some-> (gobj/get e "touches") (aget 0) (#(hash-map :x (.-clientX %) :y (.-clientY %)))))
         srs-open?            (= :srs (state/sub :modal/id))
         touching-x-offset    (and (some-> @*touch-state :after)
@@ -635,7 +638,7 @@
         (reset! *touch-state nil))}
 
      ;; sidebar contents
-     (sidebar-nav route-match close-fn left-sidebar-open? enable-whiteboards? srs-open? *closing?
+     (sidebar-nav route-match close-fn left-sidebar-open? enable-whiteboards? enable-namespaces? srs-open? *closing?
        @*close-signal (and touch-pending? touching-x-offset))
      ;; resizer
      (sidebar-resizer)]))

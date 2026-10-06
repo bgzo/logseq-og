@@ -127,6 +127,8 @@
  :left-side-bar/nav-favorites "收藏页面"
  :left-side-bar/nav-recent-pages "最近使用"
  :left-side-bar/nav-namespaces "命名空间"
+ :left-side-bar/expand "展开"
+ :left-side-bar/collapse "折叠"
  :left-side-bar/new-whiteboard "新建白板"
  :left-side-bar/create "新建"
  :page/delete-confirmation "您确定要删除此页面和文件吗？"
