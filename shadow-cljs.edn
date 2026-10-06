@@ -49,6 +49,11 @@
         ;;   For browser/mobile-app devs, assets are located in /static/js(via HTTP root).
         ;;   For electron devs, assets are located in ./js(via relative path).
         ;; :dev      {:asset-path "./js"}
+        ;;   Electron dev also needs :devtools {:use-document-host false} (set in
+        ;;   package.json cljs:electron-watch). The renderer loads from
+        ;;   lsp://logseq.com (electron.window/MAIN_WINDOW_ENTRY), so the
+        ;;   devtools client would otherwise open its hot-reload websocket to
+        ;;   the document host (logseq.com) and never reach the local server.
         :devtools {:before-load frontend.core/stop          ;; before live-reloading any code call this function
                    :after-load frontend.core/start          ;; after live-reloading finishes call this function
                    :watch-path "/static"
