@@ -25,8 +25,6 @@
  :join-community "Sluit u aan bij de gemeenschap"
  :language "Taal"
  :loading-files "Bestanden laden"
- :login "Inloggen"
- :logout "Uitloggen"
  :new-graph "Nieuwe grafiek toevoegen"
  :open-a-directory "Open een lokale map"
  :open-new-window "Nieuwe venster"
@@ -70,8 +68,6 @@
  :file/name "Bestandsnaam"
  :file/no-data "Geen gegevens"
 
- :file-sync/graph-deleted "Het huidige remote grafiek is verwijderd"
- :file-sync/other-user-graph "De huidige lokale grafiek is gebonden aan de remote grafiek van de andere gebruiker. Dus kan de synchronisatie niet starten."
 
  :graph/persist "Logseq is de interne status aan het synchroniseren, wacht alstublieft enkele seconden."
  :graph/persist-error "Interne status sync mislukt."

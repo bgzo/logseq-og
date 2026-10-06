@@ -9,7 +9,6 @@
             [frontend.idb :as idb]
             [cljs-bean.core :as bean]
             [clojure.core.async :as async]
-            [clojure.core.async.interop :refer [p->c]]
             [clojure.set :as set]
             [clojure.string :as string]
             [frontend.commands :as commands]
@@ -17,13 +16,10 @@
             [frontend.components.conversion :as conversion-component]
             [frontend.components.settings :as settings]
             [frontend.components.diff :as diff]
-            [frontend.components.encryption :as encryption]
-            [frontend.components.file-sync :as file-sync]
             [frontend.components.git :as git-component]
             [frontend.components.plugins :as plugin]
             [frontend.components.shell :as shell]
             [frontend.components.whiteboard :as whiteboard]
-            [frontend.components.user.login :as login]
             [frontend.config :as config]
             [frontend.context.i18n :refer [t]]
             [frontend.db :as db]
@@ -34,12 +30,10 @@
             [frontend.fs :as fs]
             [frontend.fs.capacitor-fs :as capacitor-fs]
             [frontend.fs.nfs :as nfs]
-            [frontend.fs.sync :as sync]
             [frontend.fs.watcher-handler :as fs-watcher]
             [frontend.handler.common :as common-handler]
             [frontend.handler.editor :as editor-handler]
             [frontend.handler.file :as file-handler]
-            [frontend.handler.file-sync :as file-sync-handler]
             [frontend.handler.notification :as notification]
             [frontend.handler.page :as page-handler]
             [frontend.handler.plugin :as plugin-handler]
@@ -49,14 +43,12 @@
             [frontend.handler.search :as search-handler]
             [frontend.handler.shell :as shell-handler]
             [frontend.handler.ui :as ui-handler]
-            [frontend.handler.user :as user-handler]
             [frontend.handler.whiteboard :as whiteboard-handler]
             [frontend.handler.web.nfs :as nfs-handler]
             [frontend.mobile.core :as mobile]
             [frontend.mobile.graph-picker :as graph-picker]
             [frontend.mobile.util :as mobile-util]
             [frontend.modules.instrumentation.posthog :as posthog]
-            [frontend.modules.instrumentation.sentry :as sentry-event]
             [frontend.modules.outliner.file :as outliner-file]
             [frontend.modules.shortcut.core :as st]
             [frontend.quick-capture :as quick-capture]
@@ -64,7 +56,6 @@
             [frontend.state :as state]
             [frontend.ui :as ui]
             [frontend.util :as util]
-            [frontend.util.persist-var :as persist-var]
             [goog.dom :as gdom]
             [logseq.db.schema :as db-schema]
             [logseq.graph-parser.config :as gp-config]
@@ -74,59 +65,6 @@
 ;; TODO: should we move all events here?
 
 (defmulti handle first)
-
-(defn- file-sync-restart! []
-  (async/go (async/<! (p->c (persist-var/load-vars)))
-            (async/<! (sync/<sync-stop))
-            (some-> (sync/<sync-start) async/<!)))
-
-(defn- file-sync-stop! []
-  (async/go (async/<! (p->c (persist-var/load-vars)))
-            (async/<! (sync/<sync-stop))))
-
-(defn- enable-beta-features!
-  []
-  (when-not (false? (state/enable-sync?)) ; user turns it off
-    (file-sync-handler/set-sync-enabled! true)))
-
-(defmethod handle :user/fetch-info-and-graphs [[_]]
-  (state/set-state! [:ui/loading? :login] false)
-  (async/go
-    (let [result (async/<! (sync/<user-info sync/remoteapi))]
-      (cond
-        (instance? ExceptionInfo result)
-        nil
-        (map? result)
-        (do
-          (state/set-user-info! result)
-          (when-let [uid (user-handler/user-uuid)]
-            (sentry-event/set-user! uid))
-          (let [status (if (user-handler/alpha-or-beta-user?) :welcome :unavailable)]
-            (when (and (= status :welcome) (user-handler/logged-in?))
-              (enable-beta-features!)
-              (async/<! (file-sync-handler/load-session-graphs))
-              (p/let [repos (repo-handler/refresh-repos!)]
-                (when-let [repo (state/get-current-repo)]
-                  (when (some #(and (= (:url %) repo)
-                                    (vector? (:sync-meta %))
-                                    (util/uuid-string? (first (:sync-meta %)))
-                                    (util/uuid-string? (second (:sync-meta %)))) repos)
-                    (sync/<sync-start)))))
-            (ui-handler/re-render-root!)
-            (file-sync/maybe-onboarding-show status)))))))
-
-(defmethod handle :user/logout [[_]]
-  (file-sync-handler/reset-session-graphs)
-  (sync/remove-all-pwd!)
-  (file-sync-handler/reset-user-state!)
-  (login/sign-out!))
-
-(defmethod handle :user/login [[_ host-ui?]]
-  (if (or host-ui? (not util/electron?))
-    (js/window.open config/LOGIN-URL)
-    (if (mobile-util/native-platform?)
-      (route-handler/redirect! {:to :user-login})
-      (login/open-login-modal!))))
 
 (defmethod handle :graph/added [[_ repo {:keys [empty-graph?]}]]
   (db/set-key-value repo :ast/version db-schema/ast-version)
@@ -138,12 +76,7 @@
       (route-handler/redirect! {:to :import :query-params {:from "picker"}})
       (route-handler/redirect-to-home!)))
   (when-let [dir-name (config/get-repo-dir repo)]
-    (fs/watch-dir! dir-name))
-  (file-sync-restart!))
-
-(defmethod handle :graph/unlinked [repo current-repo]
-  (when (= (:url repo) current-repo)
-    (file-sync-restart!)))
+    (fs/watch-dir! dir-name)))
 
 ;; FIXME(andelf): awful multi-arty function.
 ;; Should use a `-impl` function instead of the awful `skip-ios-check?` param with nested callback.
@@ -161,7 +94,6 @@
          (route-handler/redirect-to-home!))
        (srs/update-cards-due-count!)
        (state/pub-event! [:graph/ready graph])
-       (file-sync-restart!)
        (when-let [dir-name (config/get-repo-dir graph)]
          (fs/watch-dir! dir-name))))))
 
@@ -183,56 +115,15 @@
           (repo-handler/persist-db! current-repo persist-db-noti-m)
           (repo-handler/broadcast-persist-db! graph))))
      (repo-handler/restore-and-setup-repo! graph)
-     (graph-switch graph)
-     (state/set-state! :sync-graph/init? false))))
+     (graph-switch graph))))
 
 (defmethod handle :graph/switch [[_ graph opts]]
   (let [opts (if (false? (:persist? opts)) opts (assoc opts :persist? true))]
-    (if (or (not (false? (get @outliner-file/*writes-finished? graph)))
-            (:sync-graph/init? @state/state))
+    (if (not (false? (get @outliner-file/*writes-finished? graph)))
       (graph-switch-on-persisted graph opts)
       (notification/show!
        "Please wait seconds until all changes are saved for the current graph."
        :warning))))
-
-(defmethod handle :graph/pull-down-remote-graph [[_ graph dir-name]]
-  (if (mobile-util/native-ios?)
-    (when-let [graph-name (or dir-name (:GraphName graph))]
-      (let [graph-name (util/safe-sanitize-file-name graph-name)]
-        (if (string/blank? graph-name)
-          (notification/show! "Illegal graph folder name.")
-
-          ;; Create graph directory under Logseq document folder (local)
-          (when-let [root (state/get-local-container-root-url)]
-            (let [graph-path (graph-picker/validate-graph-dirname root graph-name)]
-              (->
-               (p/let [exists? (fs/dir-exists? graph-path)]
-                 (let [overwrite? (if exists?
-                                    (js/confirm (str "There's already a directory with the name \"" graph-name "\", do you want to overwrite it? Make sure to backup it first if you're not sure about it."))
-                                    true)]
-                   (if overwrite?
-                     (p/let [_ (fs/mkdir-if-not-exists graph-path)]
-                       (nfs-handler/ls-dir-files-with-path!
-                        graph-path
-                        {:ok-handler (fn []
-                                       (file-sync-handler/init-remote-graph graph-path graph)
-                                       (js/setTimeout (fn [] (repo-handler/refresh-repos!)) 200))}))
-                     (let [graph-name (-> (js/prompt "Please specify a new directory name to download the graph:")
-                                          str
-                                          string/trim)]
-                       (when-not (string/blank? graph-name)
-                         (state/pub-event! [:graph/pull-down-remote-graph graph graph-name]))))))
-               (p/catch (fn [^js e]
-                          (notification/show! (str e) :error)
-                          (js/console.error e)))))))))
-    (state/set-modal!
-     (file-sync/pick-dest-to-sync-panel graph)
-     {:center? true})))
-
-(defmethod handle :graph/pick-page-histories [[_ graph-uuid page-name]]
-  (state/set-modal!
-   (file-sync/pick-page-histories-panel graph-uuid page-name)
-   {:id :page-histories :label "modal-page-histories"}))
 
 (defmethod handle :graph/open-new-window [[_ev repo]]
   (p/let [current-repo (state/get-current-repo)
@@ -445,13 +336,8 @@
   (posthog/capture type payload))
 
 (defmethod handle :capture-error [[_ {:keys [error payload]}]]
-  (let [[user-uuid graph-uuid tx-id] @sync/graphs-txid
-        payload (assoc payload
-                       :user-id user-uuid
-                       :graph-id graph-uuid
-                       :tx-id tx-id)]
-    (Sentry/captureException error
-                             (bean/->js {:tags payload}))))
+  (Sentry/captureException error
+                           (bean/->js {:tags payload})))
 
 (defmethod handle :exec-plugin-cmd [[_ {:keys [pid cmd action]}]]
   (commands/exec-plugin-simple-command! pid cmd action))
@@ -480,8 +366,6 @@
         (set! (.. right-sidebar-node -style -paddingBottom) (str (+ 150 keyboard-height) "px")))
       (when-let [card-preview-el (js/document.querySelector ".cards-review")]
         (set! (.. card-preview-el -style -marginBottom) (str keyboard-height "px")))
-      (when-let [card-preview-el (js/document.querySelector ".encryption-password")]
-        (set! (.. card-preview-el -style -marginBottom) (str keyboard-height "px")))
       (js/setTimeout (fn []
                        (when-let [toolbar (.querySelector main-node "#mobile-editor-toolbar")]
                          (set! (.. toolbar -style -bottom) (str keyboard-height "px"))))
@@ -498,8 +382,6 @@
         (.removeProperty (.-style html) "--ls-native-kb-height")
         (.remove (.-classList html) "has-mobile-keyboard"))
       (when-let [card-preview-el (js/document.querySelector ".cards-review")]
-        (set! (.. card-preview-el -style -marginBottom) "0px"))
-      (when-let [card-preview-el (js/document.querySelector ".encryption-password")]
         (set! (.. card-preview-el -style -marginBottom) "0px"))
       (set! (.. main-node -style -marginBottom) "0px")
       (when-let [left-sidebar-node (gdom/getElement "left-sidebar")]
@@ -537,7 +419,6 @@
                                 :warning
                                 true)
             (prn ::migrate-app-id :from deprecated-app-id :to current-app-id)
-            (file-sync-stop!)
             (.unwatch mobile-util/fs-watcher)
             (let [current-repo (string/replace deprecated-repo deprecated-app-id current-app-id)
                   current-repo-dir (config/get-repo-dir current-repo)]
@@ -560,8 +441,7 @@
               (db/persist-if-idle! current-repo)
               (repo-config-handler/restore-repo-config! current-repo)
               (when graph-switch-f (graph-switch-f current-repo true))
-              (.watch mobile-util/fs-watcher #js {:path current-repo-dir})
-              (file-sync-restart!))))
+              (.watch mobile-util/fs-watcher #js {:path current-repo-dir}))))
         (state/pub-event! [:graph/ready (state/get-current-repo)])))))
 
 (defmethod handle :plugin/consume-updates [[_ id prev-pending? updated?]]
@@ -618,9 +498,7 @@
 (defmethod handle :mobile-file-watcher/changed [[_ ^js event]]
   (let [type (.-event event)
         payload (js->clj event :keywordize-keys true)]
-    (fs-watcher/handle-changed! type payload)
-    (when (file-sync-handler/enable-sync?)
-      (sync/file-watch-handler type payload))))
+    (fs-watcher/handle-changed! type payload)))
 
 (defmethod handle :rebuild-slash-commands-list [[_]]
   (page-handler/rebuild-slash-commands-list!))
@@ -629,8 +507,7 @@
   (st/refresh!))
 
 (defn- refresh-cb []
-  (page-handler/create-today-journal!)
-  (file-sync-restart!))
+  (page-handler/create-today-journal!))
 
 (defmethod handle :graph/ask-for-re-fresh [_]
   (handle
@@ -645,32 +522,11 @@
                   (state/close-modal!)
                   (nfs-handler/refresh! (state/get-current-repo) refresh-cb)))]]))
 
-(defmethod handle :sync/create-remote-graph [[_ current-repo]]
-  (let [graph-name (js/decodeURI (util/node-path.basename current-repo))]
-    (async/go
-      (async/<! (sync/<sync-stop))
-      (state/set-state! [:ui/loading? :graph/create-remote?] true)
-      (when-let [GraphUUID (get (async/<! (file-sync-handler/create-graph graph-name)) 2)]
-        (async/<! (sync/<sync-start))
-        (state/set-state! [:ui/loading? :graph/create-remote?] false)
-        ;; update existing repo
-        (state/set-repos! (map (fn [r]
-                                 (if (= (:url r) current-repo)
-                                   (assoc r
-                                          :GraphUUID GraphUUID
-                                          :GraphName graph-name
-                                          :remote? true)
-                                   r))
-                               (state/get-repos)))))))
-
 (defmethod handle :graph/re-index [[_]]
   ;; Ensure the graph only has ONE window instance
-  (async/go
-    (async/<! (sync/<sync-stop))
-    (repo-handler/re-index!
-     nfs-handler/rebuild-index!
-     #(do (page-handler/create-today-journal!)
-          (file-sync-restart!)))))
+  (repo-handler/re-index!
+   nfs-handler/rebuild-index!
+   #(page-handler/create-today-journal!)))
 
 ;; FIXME: move
 (defn- clear-cache!
@@ -710,16 +566,6 @@
                     (state/close-modal!)
                     (state/pub-event! [:graph/re-index])))]])))
 
-(defmethod handle :modal/remote-encryption-input-pw-dialog [[_ repo-url remote-graph-info type opts]]
-  (state/set-modal!
-   (encryption/input-password
-    repo-url nil (merge
-                  (assoc remote-graph-info
-                         :type (or type :create-pwd-remote)
-                         :repo repo-url)
-                  opts))
-   {:center? true :close-btn? false :close-backdrop? false}))
-
 (defmethod handle :journal/insert-template [[_ page-name]]
   (let [page-name (util/page-name-sanity-lc page-name)]
     (when-let [page (db/pull [:block/name page-name])]
@@ -734,47 +580,12 @@
   (when-let [id (:block/uuid block)]
     (editor-handler/set-heading! id heading)))
 
-(defmethod handle :file-sync-graph/restore-file [[_ graph page-entity content]]
-  (when (db/get-db graph)
-    (let [file (:block/file page-entity)]
-      (when-let [path (:file/path file)]
-        (when (and (not= content (:file/content file))
-                   (:file/content file))
-          (sync/add-new-version-file graph path (:file/content file)))
-        (p/let [_ (file-handler/alter-file graph
-                                           path
-                                           content
-                                           {:re-render-root? true
-                                            :skip-compare? true})]
-          (state/close-modal!)
-          (route-handler/redirect! {:to :page
-                                    :path-params {:name (:block/name page-entity)}}))))))
-
 (defmethod handle :whiteboard/onboarding [[_ opts]]
   (state/set-modal!
    (fn [close-fn] (whiteboard/onboarding-welcome close-fn))
    (merge {:close-btn?      false
            :center?         true
            :close-backdrop? false} opts)))
-
-(defmethod handle :file-sync/onboarding-tip [[_ type opts]]
-  (let [type (keyword type)]
-    (state/set-modal!
-     (file-sync/make-onboarding-panel type)
-     (merge {:close-btn?      false
-             :center?         true
-             :close-backdrop? (not= type :welcome)} opts))))
-
-(defmethod handle :file-sync/maybe-onboarding-show [[_ type]]
-  (file-sync/maybe-onboarding-show type))
-
-(defmethod handle :file-sync/storage-exceed-limit [[_]]
-  (notification/show! "file sync storage exceed limit" :warning false)
-  (file-sync-stop!))
-
-(defmethod handle :file-sync/graph-count-exceed-limit [[_]]
-  (notification/show! "file sync graph count exceed limit" :warning false)
-  (file-sync-stop!))
 
 (defmethod handle :graph/restored [[_ _graph]]
   (mobile/init!)
@@ -863,8 +674,7 @@
 
 (defmethod handle :graph/setup-a-repo [[_ opts]]
   (let [opts' (merge {:picked-root-fn #(state/close-modal!)
-                      :native-icloud? (not (string/blank? (state/get-icloud-container-root-url)))
-                      :logged?        (user-handler/logged-in?)} opts)]
+                      :native-icloud? (not (string/blank? (state/get-icloud-container-root-url)))} opts)]
     (if (mobile-util/native-ios?)
       (state/set-modal!
        #(graph-picker/graph-picker-cp opts')

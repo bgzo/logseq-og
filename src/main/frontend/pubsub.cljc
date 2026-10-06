@@ -55,23 +55,3 @@
   [:map
    [:last-activated-at :int]
    [:now :int]])
-
-(def-mult-or-pub sync-events
-  "file-sync events"
-  [:map
-   [:event [:enum
-            :created-local-version-file
-            :finished-local->remote
-            :finished-remote->local
-            :start
-            :pause
-            :resume
-            :exception-decrypt-failed
-            :remote->local-full-sync-failed
-            :local->remote-full-sync-failed
-            :get-remote-graph-failed
-            :get-deletion-logs-failed
-            :get-remote-all-files-failed]]
-   [:data :map]]
-  :topic-fn :event
-  :ch-buffer (a/sliding-buffer 10))

@@ -1,10 +1,8 @@
 (ns frontend.mobile.util
-  (:require ["@capacitor/core" :refer [Capacitor registerPlugin ^js Plugins]]
+  (:require ["@capacitor/core" :refer [Capacitor registerPlugin]]
             ["@capacitor/splash-screen" :refer [SplashScreen]]
-            ["@logseq/capacitor-file-sync" :refer [FileSync]]
             [clojure.string :as string]
-            [promesa.core :as p]
-            [goog.object :as gobj]))
+            [promesa.core :as p]))
 
 (defn platform []
   (.getPlatform Capacitor))
@@ -30,7 +28,6 @@
 
 ;; NOTE: both iOS and android share the same API
 (when (native-platform?)
-  (defonce file-sync FileSync)
   (defonce fs-watcher (registerPlugin "FsWatcher")))
 
 (defn hide-splash []
@@ -103,10 +100,3 @@
   "Check whether `path' is iCloud container path on iOS"
   [path]
   (re-matches #"/iCloud~com~logseq~logseq/Documents/?$" path))
-
-(defn app-active?
-  "Whether the app is active. This function returns a promise."
-  []
-  (let [app ^js (gobj/get Plugins "App")]
-    (p/let [state (.getState app)]
-      (gobj/get state "isActive"))))

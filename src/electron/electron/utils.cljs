@@ -1,6 +1,5 @@
 (ns electron.utils
-  (:require ["@logseq/rsapi" :as rsapi]
-            ["electron" :refer [BrowserWindow]]
+  (:require ["electron" :refer [BrowserWindow]]
             ["fs-extra" :as fs]
             ["path" :as node-path]
             [clojure.string :as string]
@@ -83,14 +82,6 @@
         (logger/error "Unknown proxy protocol:" protocol)))
     (reset! *fetchAgent nil)))
 
-(defn- set-rsapi-proxy
-  "Set proxy for Logseq Sync(rsapi)"
-  [{:keys [protocol host port]}]
-  (if (and protocol host port (or (= protocol "http") (= protocol "socks5")))
-    (let [proxy-url (str protocol "://" host ":" port)]
-      (rsapi/setProxy proxy-url))
-    (rsapi/setProxy nil)))
-
 (defn <set-electron-proxy
   "Set proxy for electron
   type: system | direct | socks5 | http"
@@ -161,27 +152,24 @@
          (first pac-opts))))))
 
 (defn <set-proxy
-  "Set proxy for electron, fetch, and rsapi"
+  "Set proxy for electron and fetch"
   ([{:keys [type host port] :or {type "system"} :as opts}]
    (logger/info "set proxy to" opts)
    (cond
      (= type "system")
      (p/let [_ (<set-electron-proxy {:type "system"})
              proxy (<get-system-proxy)]
-       (set-fetch-agent-proxy proxy)
-       (set-rsapi-proxy proxy))
+       (set-fetch-agent-proxy proxy))
 
      (= type "direct")
      (do
        (<set-electron-proxy {:type "direct"})
-       (set-fetch-agent-proxy nil)
-       (set-rsapi-proxy nil))
+       (set-fetch-agent-proxy nil))
 
      (or (= type "socks5") (= type "http"))
      (do
        (<set-electron-proxy {:type type :host host :port port})
-       (set-fetch-agent-proxy {:protocol type :host host :port port})
-       (set-rsapi-proxy {:protocol type :host host :port port}))
+       (set-fetch-agent-proxy {:protocol type :host host :port port}))
 
      :else
      (logger/error "Unknown proxy type:" type))))

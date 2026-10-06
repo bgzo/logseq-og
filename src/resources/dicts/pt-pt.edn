@@ -185,10 +185,6 @@
  :settings-page/plugin-system "Plugins"
  :settings-page/enable-flashcards "Flashcards"
  :settings-page/filename-format "Formato do nome dos ficheiros"
- :settings-page/alpha-features "Funcionalidades em fase Alfa"
- :settings-page/beta-features "Funcionalidades em fase Beta"
- :settings-page/login-prompt "Para aceder a novas funcionalidades antes de qualquer outra pessoa tem de ser um \"Sponsor\" ou \"Backer\" na Open Collective do Logseq e, portanto, tem de iniciar sessão primeiro."
- :settings-page/sync "Sincronizar"
  :settings-page/enable-whiteboards "Quadros brancos"
  :yes "Sim"
  :submit "Submeter"
@@ -241,8 +237,6 @@
  :help-shortcut-title "Clique para ver atalhos e outras dicas"
  :parsing-files "A analisar ficheiros"
  :loading-files "A carregar ficheiros"
- :login "Iniciar sessão"
- :logout "Terminar sessão"
  :download "Descarregar"
  :language "Idioma"
  :remove-background "Remover fundo"
@@ -305,9 +299,6 @@
  :select.graph/empty-placeholder-description "Sem grafos correspondentes. Quer adicionar outro?"
  :select.graph/add-graph "Sim, adicionar outro grafo"
 
- :file-sync/other-user-graph "O grafo local atual está ligado ao grafo remoto de outro utilizador. Portanto, a sincronização não pode ser iniciada."
- :file-sync/graph-deleted "O grafo remoto atual foi apagado"
- :file-sync/rsapi-cannot-upload-err "Não foi possível iniciar a sincronização, verifique se a hora local está correta."
 
  :notification/clear-all "Limpar tudo"
 

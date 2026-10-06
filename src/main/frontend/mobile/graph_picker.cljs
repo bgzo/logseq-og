@@ -32,15 +32,11 @@
                  (on-toggle (not on?)))))
 
 (rum/defc ^:large-vars/cleanup-todo graph-picker-cp
-  [{:keys [onboarding-and-home? logged? native-icloud?] :as opts}]
-  (let [can-logseq-sync? (and logged? (state/enable-sync?))
-        [step set-step!] (rum/use-state :init)
+  [{:keys [onboarding-and-home? native-icloud?] :as opts}]
+  (let [[step set-step!] (rum/use-state :init)
         [sync-mode set-sync-mode!] (rum/use-state
-                                    (cond
-                                      can-logseq-sync? :logseq-sync
-                                      native-icloud? :icloud-sync))
+                                    (if native-icloud? :icloud-sync nil))
         icloud-sync-on?  (= sync-mode :icloud-sync)
-        logseq-sync-on?  (= sync-mode :logseq-sync)
         *input-ref       (rum/create-ref)
         native-ios?      (mobile-util/native-ios?)
         open-picker      #(page-handler/ls-dir-files! shortcut/refresh! opts)
@@ -64,12 +60,7 @@
                                        (p/then
                                         (fn []
                                           (web-nfs/ls-dir-files-with-path!
-                                           graph-path (merge
-                                                       {:ok-handler
-                                                        (fn []
-                                                          (when logseq-sync-on?
-                                                            (state/pub-event! [:sync/create-remote-graph (state/get-current-repo)])))}
-                                                       opts))
+                                           graph-path opts)
                                           (notification/show! (str "Create graph: " graph-name) :success)))
                                        (p/catch (fn [^js e]
                                                   (notification/show! (str e) :error)
@@ -132,12 +123,7 @@
           :placeholder "What's the graph name?"}]
 
         [:div.flex.flex-col
-         (when can-logseq-sync?
-           (toggle-item {:title     "Logseq sync"
-                         :on?       logseq-sync-on?
-                         :on-toggle #(set-sync-mode! (if % :logseq-sync (if native-icloud? :icloud-sync nil)))}))
-
-         (when (and native-icloud? (not logseq-sync-on?))
+         (when native-icloud?
            (toggle-item {:title     "iCloud sync"
                          :on?       icloud-sync-on?
                          :on-toggle #(set-sync-mode! (if % :icloud-sync nil))}))]

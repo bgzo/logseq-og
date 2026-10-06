@@ -259,11 +259,6 @@
   resolved "https://registry.yarnpkg.com/@capacitor/status-bar/-/status-bar-5.0.8.tgz#f00e21a99f79b06c36d61ad35ba78675fdefda54"
   integrity sha512-ES/4ik3/6SV6RVXVVoMm5i7zanwZ+CBtNX6glhBHDHS0nR2m3Dmdxuk/BaFEZWT5bDn4xzg0LlnMsS8mlbUf+A==
 
-"@capawesome/capacitor-background-task@^5.0.0":
-  version "5.0.0"
-  resolved "https://registry.yarnpkg.com/@capawesome/capacitor-background-task/-/capacitor-background-task-5.0.0.tgz#eb985131065df59f95ffa1e9ef3abf0f3573a35f"
-  integrity sha512-puZ/MaNNlIMmwojuMX5Z5rqWJFHjvpdgMB+xGe/QXG+IMrcY5eMtR3l/NLGtbH8izwid1dAsxzBACX5RGHdVzA==
-
 "@capgo/capacitor-navigation-bar@^6.0.0":
   version "6.1.75"
   resolved "https://registry.yarnpkg.com/@capgo/capacitor-navigation-bar/-/capacitor-navigation-bar-6.1.75.tgz#60ff3c460683e6842bb856fff2aedc6377148e49"
@@ -460,11 +455,6 @@
   dependencies:
     "@jridgewell/resolve-uri" "^3.1.0"
     "@jridgewell/sourcemap-codec" "^1.4.14"
-
-"@logseq/capacitor-file-sync@5.0.2":
-  version "5.0.2"
-  resolved "https://registry.yarnpkg.com/@logseq/capacitor-file-sync/-/capacitor-file-sync-5.0.2.tgz#10c56e35b41b1a0afd293c9b045fbcfe150c3477"
-  integrity sha512-FymsTeRtF66zG+oeO+ohZxWICMQMC8An4n9pdI0zz1WaGLer4oWC/lUghlC2DpztRLA32p0CH28tEzF5+2jARg==
 
 "@logseq/diff-merge@0.2.2":
   version "0.2.2"
@@ -1716,11 +1706,6 @@ character-reference-invalid@^1.0.0:
   version "1.1.4"
   resolved "https://registry.yarnpkg.com/character-reference-invalid/-/character-reference-invalid-1.1.4.tgz#083329cda0eae272ab3dbbf37e9a382c13af1560"
   integrity sha512-mKKUkUbhPpQlCOfIuZkvSEgktjPFIsZKRRbC6KWVEMvlzblj3i3asQv5ODsrwt0N3pHAEvjP8KTQPHkp0+6jOg==
-
-check-password-strength@2.0.7:
-  version "2.0.7"
-  resolved "https://registry.yarnpkg.com/check-password-strength/-/check-password-strength-2.0.7.tgz#d8fd6c1a274267c7ddd9cd15c71a3cfb6ad35baa"
-  integrity sha512-VyklBkB6dOKnCIh63zdVr7QKVMN9/npwUqNAXxWrz8HabVZH/n/d+lyNm1O/vbXFJlT/Hytb5ouYKYGkoeZirQ==
 
 chokidar@3.5.1:
   version "3.5.1"

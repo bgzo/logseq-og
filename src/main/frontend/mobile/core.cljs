@@ -53,18 +53,7 @@
   (when (not (config/demo-graph?))
     (state/pub-event! [:validate-appId]))
 
-  (mobile-util/check-ios-zoomed-display)
-
-  ;; keep this the same logic as src/main/electron/listener.cljs
-  (.addListener mobile-util/file-sync "debug"
-                (fn [event]
-                  (let [event (js->clj event :keywordize-keys true)
-                        payload (:data event)]
-                    (when (or (= (:event event) "download:progress")
-                              (= (:event event) "upload:progress"))
-                      (state/set-state! [:file-sync/graph-state (:graphUUID payload) :file-sync/progress (:file payload)] payload))))))
-
-
+  (mobile-util/check-ios-zoomed-display))
 
 (defn- android-init
   "Initialize Android-specified event listeners"
@@ -99,13 +88,7 @@
                        (js/window.history.back)))))
 
   (.addEventListener js/window "sendIntentReceived"
-                     #(intent/handle-received))
-
-  (.addListener mobile-util/file-sync "progress"
-                (fn [event]
-                  (js/console.log "🔄" event)
-                  (let [event (js->clj event :keywordize-keys true)]
-                    (state/set-state! [:file-sync/graph-state (:graphUUID event) :file-sync/progress (:file event)] event)))))
+                     #(intent/handle-received)))
 
 (defn- app-state-change-handler
   [^js state]

@@ -154,24 +154,6 @@
      (fn [_error]
        (mkdir-recur! dir)))))
 
-(defn copy!
-  "Only used by Logseq Sync"
-  [repo old-path new-path]
-  (cond
-    (= old-path new-path)
-    (p/resolved nil)
-
-    :else
-    (let [[old-path new-path]
-          (map #(if (or (util/electron?) (mobile-util/native-platform?))
-                  %
-                  (str (config/get-repo-dir repo) "/" %))
-               [old-path new-path])
-          new-dir (path/dirname new-path)]
-      (p/do!
-       (mkdir-if-not-exists new-dir)
-       (protocol/copy! (get-fs old-path) repo old-path new-path)))))
-
 (defn open-dir
   [dir]
   (let [record (get-native-backend)]
@@ -229,14 +211,6 @@
     (stat dir path)
     (fn [stat] (not (nil? stat)))
     (fn [_e] false))))
-
-(defn asset-href-exists?
-  "href is from `make-asset-url`, so it's most likely a full-path"
-  [href]
-  (p/let [repo-dir (config/get-repo-dir (state/get-current-repo))
-          rpath (path/relative-path repo-dir href)
-          exist? (file-exists? repo-dir rpath)]
-    exist?))
 
 (defn asset-path-normalize
   [path]

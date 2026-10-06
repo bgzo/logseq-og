@@ -38,7 +38,6 @@
             [frontend.handler.block :as block-handler]
             [frontend.handler.dnd :as dnd]
             [frontend.handler.editor :as editor-handler]
-            [frontend.handler.file-sync :as file-sync]
             [frontend.handler.notification :as notification]
             [frontend.handler.plugin :as plugin-handler]
             [frontend.handler.repeated :as repeated]
@@ -177,69 +176,6 @@
                                    (rest col)))))
                 parts (remove #(string/blank? %) parts)]
             (util/string-join-path (reverse parts))))))))
-
-(rum/defcs asset-loader
-  < rum/reactive
-  (rum/local nil ::exist?)
-  (rum/local false ::loading?)
-  {:will-mount  (fn [state]
-                  (let [src (first (:rum/args state))]
-                    (if (and (gp-config/local-protocol-asset? src)
-                             (file-sync/current-graph-sync-on?))
-                      (let [*exist? (::exist? state)
-                            ;; special handling for asset:// protocol
-                            ;; Capacitor uses a special URL for assets loading
-                            asset-path (gp-config/remove-asset-protocol src)
-                            asset-path (fs/asset-path-normalize asset-path)]
-                        (if (string/blank? asset-path)
-                          (reset! *exist? false)
-                          ;; FIXME(andelf): possible bug here
-                          (p/let [exist? (fs/asset-href-exists? asset-path)]
-                            (reset! *exist? (boolean exist?))))
-                        (assoc state ::asset-path asset-path ::asset-file? true))
-                      state)))
-   :will-update (fn [state]
-                  (let [src (first (:rum/args state))
-                        asset-file? (boolean (::asset-file? state))
-                        sync-on? (file-sync/current-graph-sync-on?)
-                        *loading? (::loading? state)
-                        *exist? (::exist? state)]
-                    (when (and sync-on? asset-file? (false? @*exist?))
-                      (let [sync-state (state/get-file-sync-state (state/get-current-file-sync-graph-uuid))
-                            downloading-files (:current-remote->local-files sync-state)
-                            contain-url? (and (seq downloading-files)
-                                              (some #(string/ends-with? src %) downloading-files))]
-                        (cond
-                          (and (not @*loading?) contain-url?)
-                          (reset! *loading? true)
-
-                          (and @*loading? (not contain-url?))
-                          (do
-                            (reset! *exist? true)
-                            (reset! *loading? false))))))
-                  state)}
-  [state src content-fn]
-  (let [_ (state/sub-file-sync-state (state/get-current-file-sync-graph-uuid))
-        exist? @(::exist? state)
-        loading? @(::loading? state)
-        asset-file? (::asset-file? state)
-        sync-enabled? (boolean (file-sync/current-graph-sync-on?))
-        ext (keyword (util/get-file-ext src))
-        img? (contains? (gp-config/img-formats) ext)
-        audio? (contains? config/audio-formats ext)
-        type (cond img? "image"
-                   audio? "audio"
-                   :else "asset")]
-
-    (if (not sync-enabled?)
-      (content-fn)
-      (if (and asset-file? (or loading? (nil? exist?)))
-        [:p.text-sm.opacity-50 (ui/loading (util/format "Syncing %s ..." type))]
-        (if (or (not asset-file?)
-                (and exist? (not loading?)))
-          (content-fn)
-          [:p.text-error.text-xs [:small.opacity-80
-                                    (util/format "%s not found!" (string/capitalize type))]])))))
 
 (defn open-lightbox
   [e]
@@ -399,12 +335,10 @@
 
         (cond
           (contains? config/audio-formats ext)
-          (asset-loader @src
-                        #(audio-cp @src))
+          (audio-cp @src)
 
           (contains? (gp-config/img-formats) ext)
-          (asset-loader @src
-                        #(resizable-image config title @src metadata full_text true))
+          (resizable-image config title @src metadata full_text true)
 
           (contains? (gp-config/text-formats) ext)
           [:a.asset-ref.is-plaintext {:href (rfe/href :file {:path path})

@@ -6,11 +6,7 @@
             [frontend.util :as util]
             [logseq.graph-parser.util :as gp-util]
             [clojure.string :as string]
-            [frontend.state :as state]
-            [frontend.fs :as fs]
-            [frontend.config :as config]
-            [promesa.core :as p]
-            [cljs.reader :as reader]))
+            [frontend.state :as state]))
 
 ;; NOTE: This is not the same ignored-path? as src/electron/electron/utils.cljs.
 ;;       The assets directory is ignored.
@@ -43,35 +39,6 @@
           (not
            (some #(string/ends-with? path %)
                  [".md" ".markdown" ".org" ".js" ".edn" ".css"]))))))))
-
-(defn read-graphs-txid-info
-  [root]
-  (when (string? root)
-    (p/let [exists? (fs/file-exists? root "logseq/graphs-txid.edn")]
-      (when exists?
-        (-> (p/let [txid-str (fs/read-file root "logseq/graphs-txid.edn")
-                    txid-meta (and txid-str (reader/read-string txid-str))]
-              txid-meta)
-            (p/catch
-                (fn [^js e]
-                  (js/console.error "[fs read txid data error]" e))))))))
-
-(defn inflate-graphs-info
-  [graphs]
-  (if (seq graphs)
-    (p/all (for [{:keys [root] :as graph} graphs]
-             (p/let [sync-meta (read-graphs-txid-info root)]
-               (if sync-meta
-                 (assoc graph
-                        :sync-meta sync-meta
-                        :GraphUUID (second sync-meta))
-                 graph))))
-    []))
-
-(defn read-repo-file
-  [repo-url file-rpath]
-  (when-let [repo-dir (config/get-repo-dir repo-url)]
-    (fs/read-file repo-dir file-rpath)))
 
 (def multiplatform-reserved-chars ":\\*\\?\"<>|\\#\\\\")
 

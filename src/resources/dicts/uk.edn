@@ -209,10 +209,6 @@
  :settings-page/enable-flashcards "Картки"
  :settings-page/network-proxy "Мережевий проксі"
  :settings-page/filename-format "Формат імені файлу"
- :settings-page/alpha-features "Альфа-функції"
- :settings-page/beta-features "Бета-функції"
- :settings-page/login-prompt "Щоб отримати доступ до нових функцій раніше за інших, ви повинні бути відкритим колективним спонсором або спонсором Logseq і, отже, спершу увійти."
- :settings-page/sync "Синхронізація"
  :settings-page/enable-whiteboards "Дошки"
  :yes "Так"
 
@@ -267,8 +263,6 @@
  :help-shortcut-title "Клацніть, щоб перевірити комбінації і інші підказки"
  :parsing-files "Розбір файлів"
  :loading-files "Загрузка файлів"
- :login "Увіти"
- :logout "Вийти"
  :download "Завантажити"
  :language "Мова"
  :remove-background "Видалити фон"
@@ -335,9 +329,6 @@
  :select.graph/empty-placeholder-description "Не знайденно графіків. Чи бажаєте додати один?"
  :select.graph/add-graph "Так, додати інший графік"
 
- :file-sync/other-user-graph "Поточний локальний графік зв'язаний з графіком іншого користувача. Тому неможливо почати синхронізацію."
- :file-sync/graph-deleted "Поточний дистанційний графік був видалений"
- :file-sync/rsapi-cannot-upload-err "Неможливо розпочати синхронізацію, будь ласка, перевірте чи місцевий час встановлено коректно."
 
  :notification/clear-all "Очистити все"
 

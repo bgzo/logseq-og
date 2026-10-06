@@ -388,13 +388,6 @@
                    :to new-fpath}))
         (p/catch (fn [error]
                    (log/error :rename-file-failed error)))))
-  (copy! [_this _repo old-path new-path]
-    (-> (.copy Filesystem
-               (clj->js
-                {:from old-path
-                 :to new-path}))
-        (p/catch (fn [error]
-                   (log/error :copy-file-failed error)))))
   (stat [_this fpath]
     (-> (p/chain (.stat Filesystem (clj->js {:path fpath}))
                  #(js->clj % :keywordize-keys true))

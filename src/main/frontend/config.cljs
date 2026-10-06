@@ -7,10 +7,7 @@
             [frontend.util :as util]
             [logseq.common.path :as path]
             [logseq.graph-parser.config :as gp-config]
-            [logseq.graph-parser.util :as gp-util]
-            [shadow.resource :as rc]
-            [goog.crypt.Md5]
-            [goog.crypt :as crypt]))
+            [shadow.resource :as rc]))
 
 (goog-define DEV-RELEASE false)
 (defonce dev-release? DEV-RELEASE)
@@ -26,40 +23,6 @@
 
 (goog-define TEST false)
 (def test? TEST)
-
-(goog-define ENABLE-FILE-SYNC-PRODUCTION false)
-
-;; this is a feature flag to enable the account tab
-;; when it launches (when pro plan launches) it should be removed
-(def ENABLE-SETTINGS-ACCOUNT-TAB false)
-
-(if ENABLE-FILE-SYNC-PRODUCTION
-  (do (def FILE-SYNC-PROD? true)
-      (def LOGIN-URL
-        "https://logseq-prod.auth.us-east-1.amazoncognito.com/login?client_id=3c7np6bjtb4r1k1bi9i049ops5&response_type=code&scope=email+openid+phone&redirect_uri=logseq-og%3A%2F%2Fauth-callback")
-      (def API-DOMAIN "api.logseq.com")
-      (def WS-URL "wss://ws.logseq.com/file-sync?graphuuid=%s")
-      (def COGNITO-IDP "https://cognito-idp.us-east-1.amazonaws.com/")
-      (def COGNITO-CLIENT-ID "69cs1lgme7p8kbgld8n5kseii6")
-      (def REGION "us-east-1")
-      (def USER-POOL-ID "us-east-1_dtagLnju8")
-      (def IDENTITY-POOL-ID "us-east-1:d6d3b034-1631-402b-b838-b44513e93ee0")
-      (def OAUTH-DOMAIN "logseq-prod.auth.us-east-1.amazoncognito.com")
-      (def CONNECTIVITY-TESTING-S3-URL "https://logseq-connectivity-testing-prod.s3.us-east-1.amazonaws.com/logseq-connectivity-testing")
-      )
-
-  (do (def FILE-SYNC-PROD? false)
-      (def LOGIN-URL
-        "https://logseq-test2.auth.us-east-2.amazoncognito.com/login?client_id=3ji1a0059hspovjq5fhed3uil8&response_type=code&scope=email+openid+phone&redirect_uri=logseq-og%3A%2F%2Fauth-callback")
-      (def API-DOMAIN "api-dev.logseq.com")
-      (def WS-URL "wss://ws-dev.logseq.com/file-sync?graphuuid=%s")
-      (def COGNITO-IDP "https://cognito-idp.us-east-2.amazonaws.com/")
-      (def COGNITO-CLIENT-ID "1qi1uijg8b6ra70nejvbptis0q")
-      (def REGION "us-east-2")
-      (def USER-POOL-ID "us-east-2_kAqZcxIeM")
-      (def IDENTITY-POOL-ID "us-east-2:cc7d2ad3-84d0-4faf-98fe-628f6b52c0a5")
-      (def OAUTH-DOMAIN "logseq-test2.auth.us-east-2.amazoncognito.com")
-      (def CONNECTIVITY-TESTING-S3-URL "https://logseq-connectivity-testing-prod.s3.us-east-1.amazonaws.com/logseq-connectivity-testing")))
 
 ;; Feature flags
 ;; =============
@@ -347,9 +310,6 @@
 (def export-css-file "export.css")
 (def custom-js-file "custom.js")
 (def config-default-content (rc/inline "templates/config.edn"))
-(def config-default-content-md5 (let [md5 (new crypt/Md5)]
-                                  (.update md5 (crypt/stringToUtf8ByteArray config-default-content))
-                                  (crypt/byteArrayToHex (.digest md5))))
 
 ;; NOTE: repo-url is the unique identifier of a repo.
 ;; - `local` => in-memory demo graph
@@ -416,25 +376,6 @@
       (str "/"
            (->> (take-last 2 (string/split repo-url #"/"))
                 (string/join "_"))))))
-
-(defn get-string-repo-dir
-  [repo-dir]
-  (if (mobile-util/native-ios?)
-    (str (if (mobile-util/in-iCloud-container-path? repo-dir)
-           "iCloud"
-           (cond (mobile-util/native-iphone?)
-                 "On My iPhone"
-
-                 (mobile-util/native-ipad?)
-                 "On My iPad"
-
-                 :else
-                 "Local"))
-         (->> (string/split repo-dir "Documents/")
-              last
-              gp-util/safe-decode-uri-component
-              (str "/" (string/capitalize app-name) "/")))
-    (get-repo-dir (get-local-repo repo-dir))))
 
 (defn get-repo-fpath
   [repo-url path]

@@ -10,7 +10,6 @@
             ["grapheme-splitter" :as GraphemeSplitter]
             ["remove-accents" :as removeAccents]
             ["sanitize-filename" :as sanitizeFilename]
-            ["check-password-strength" :refer [passwordStrength]]
             ["path-complete-extname" :as pathCompleteExtname]
             [frontend.loader :refer [load]]
             [cljs-bean.core :as bean]
@@ -86,18 +85,6 @@
        {:malli/schema [:=> [:cat :string] :boolean]}
        [s]
        (boolean (safe-re-find exactly-uuid-pattern s)))
-     (defn check-password-strength
-       {:malli/schema [:=> [:cat :string] [:maybe
-                                           [:map
-                                            [:contains [:sequential :string]]
-                                            [:length :int]
-                                            [:id :int]
-                                            [:value :string]]]]}
-       [input]
-       (when-let [^js ret (and (string? input)
-                               (not (string/blank? input))
-                               (passwordStrength input))]
-         (bean/->clj ret)))
      (defn safe-sanitize-file-name
        {:malli/schema [:=> [:cat :string] :string]}
        [s]

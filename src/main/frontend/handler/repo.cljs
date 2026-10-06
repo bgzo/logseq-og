@@ -19,16 +19,13 @@
             [frontend.spec :as spec]
             [frontend.state :as state]
             [frontend.util :as util]
-            [frontend.util.fs :as util-fs]
             [promesa.core :as p]
             [shadow.resource :as rc]
             [frontend.db.persist :as db-persist]
             [logseq.graph-parser :as graph-parser]
             [logseq.graph-parser.config :as gp-config]
             [electron.ipc :as ipc]
-            [cljs-bean.core :as bean]
             [clojure.core.async :as async]
-            [frontend.mobile.util :as mobile-util]
             [medley.core :as medley]
             [logseq.common.path :as path]
             [logseq.common.config :as common-config]))
@@ -467,65 +464,6 @@
   [graph]
   (p/let [_ (ipc/ipc "broadcastPersistGraph" graph)] ;; invoke for chaining promise
     nil))
-
-(defn get-repos
-  []
-  (p/let [nfs-dbs (db-persist/get-all-graphs)
-          nfs-dbs (map (fn [db]
-                         {:url db
-                          :root (config/get-local-dir db)
-                          :nfs? true}) nfs-dbs)
-          nfs-dbs (and (seq nfs-dbs)
-                       (cond (util/electron?)
-                             (ipc/ipc :inflateGraphsInfo nfs-dbs)
-
-                             (mobile-util/native-platform?)
-                             (util-fs/inflate-graphs-info nfs-dbs)
-
-                             :else
-                             nil))
-          nfs-dbs (seq (bean/->clj nfs-dbs))]
-    (cond
-      (seq nfs-dbs)
-      nfs-dbs
-
-      :else
-      [{:url config/local-repo
-        :example? true}])))
-
-(defn combine-local-&-remote-graphs
-  [local-repos remote-repos]
-  (when-let [repos' (seq (concat (map #(if-let [sync-meta (seq (:sync-meta %))]
-                                         (assoc % :GraphUUID (second sync-meta)) %)
-                                   local-repos)
-                                 (some->> remote-repos
-                                          (map #(assoc % :remote? true)))))]
-    (let [repos' (group-by :GraphUUID repos')
-          repos'' (mapcat (fn [[k vs]]
-                            (if-not (nil? k)
-                              [(merge (first vs) (second vs))] vs))
-                          repos')]
-      (sort-by (fn [repo]
-                 (let [graph-name (or (:GraphName repo)
-                                      (last (string/split (:root repo) #"/")))]
-                   [(:remote? repo) (string/lower-case graph-name)])) repos''))))
-
-(defn get-detail-graph-info
-  [url]
-  (when-let [graphs (seq (and url (combine-local-&-remote-graphs
-                                    (state/get-repos)
-                                    (state/get-remote-graphs))))]
-    (first (filter #(when-let [url' (:url %)]
-                      (= url url')) graphs))))
-
-(defn refresh-repos!
-  []
-  (p/let [repos (get-repos)
-          repos' (combine-local-&-remote-graphs
-                  repos
-                  (state/get-remote-graphs))]
-    (state/set-repos! repos')
-    repos'))
 
 (defn graph-ready!
   ;; FIXME: Call electron that the graph is loaded, an ugly implementation for redirect to page when graph is restored

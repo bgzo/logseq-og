@@ -28,7 +28,6 @@
             [frontend.handler.repo :as repo-handler]
             [frontend.handler.repo-config :as repo-config-handler]
             [frontend.handler.ui :as ui-handler]
-            [frontend.handler.user :as user-handler]
             [frontend.idb :as idb]
             [frontend.mobile.util :as mobile-util]
             [frontend.modules.instrumentation.core :as instrument]
@@ -36,6 +35,7 @@
             [frontend.modules.outliner.file :as file]
             [frontend.modules.shortcut.core :as shortcut]
             [frontend.state :as state]
+            [frontend.storage :as storage]
             [frontend.ui :as ui]
             [frontend.util :as util]
             [frontend.util.persist-var :as persist-var]
@@ -196,13 +196,27 @@
 
 (reset! db/*db-listener outliner-db/after-transact-pipelines)
 
+(defn- clear-deprecated-auth-storage!
+  "Clean up tokens and sync settings persisted by the removed Logseq Sync /
+  account login features. Idempotent; can be removed in a future release."
+  []
+  (when-not util/node-test?
+    (doseq [k ["id-token" "access-token" "refresh-token"
+               "user-groups"
+               "logseq-sync-enabled" "logseq-sync-diff-merge-enabled"
+               "file-sync/onboarding-state"]]
+      (storage/remove k))
+    (doseq [k (js/Object.keys js/localStorage)]
+      (when (string/starts-with? k "CognitoIdentityServiceProvider.")
+        (.removeItem js/localStorage k)))))
+
 (defn start!
   [render]
   (set-global-error-notification!)
 
   (set! js/window.onhashchange #(state/hide-custom-context-menu!)) ;; close context menu when page navs
   (register-components-fns!)
-  (user-handler/restore-tokens-from-localstorage)
+  (clear-deprecated-auth-storage!)
   (state/set-db-restoring! true)
   (when (util/electron?)
     (el/listen!))
