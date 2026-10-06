@@ -31,6 +31,21 @@
                               {:shortcuts {:editor/up ["ctrl+p" "up"]}}))
       "Map values get merged across configs"))
 
+(deftest enable-namespaces?
+  (let [config (:config @state/state)]
+    (try
+      (testing "namespaces are hidden unless the feature is explicitly enabled"
+        (state/set-state! [:config "namespace-test-repo" :feature/enable-namespaces?] nil)
+        (is (false? (state/enable-namespaces? "namespace-test-repo"))))
+      (testing "an explicit true enables the sidebar section"
+        (state/set-state! [:config "namespace-test-repo" :feature/enable-namespaces?] true)
+        (is (true? (state/enable-namespaces? "namespace-test-repo"))))
+      (testing "an explicit false keeps it hidden"
+        (state/set-state! [:config "namespace-test-repo" :feature/enable-namespaces?] false)
+        (is (false? (state/enable-namespaces? "namespace-test-repo"))))
+      (finally
+        (state/set-state! :config config)))))
+
 (deftest get-backup-enabled?
   (let [original (:electron/user-cfgs @state/state)]
     (try

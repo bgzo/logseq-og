@@ -254,11 +254,14 @@
             :data-ref name}
            (page-name name (get-page-icon entity) true)]))])))
 
-(rum/defc namespace-node
+(rum/defc namespace-node < rum/reactive
   [node depth]
   (let [full-name (or (:original-name node) (:name node))
         label (last (string/split full-name "/"))
-        entity (db/entity [:block/name (:name node)])]
+        entity (db/entity [:block/name (:name node)])
+        children (:children node)
+        collapsed-key (str "namespace-" (:name node))
+        collapsed? (state/sub [:ui/navigation-item-collapsed? collapsed-key])]
     [:li
      ;; Indent nested namespaces; top level shares the same left padding
      ;; as favorites/recent items.
@@ -267,10 +270,30 @@
        :style {:padding-left (str (+ 24 (* depth 12)) "px")}
        :on-click (fn [_e] (route-handler/redirect-to-page! (:name node)))}
       [:span.page-icon.ml-3.justify-center (get-page-icon entity)]
-      [:span.page-title label]]
-     (when (seq (:children node))
+      [:span.page-title label]
+      (when (seq children)
+        ;; Right-aligned like the favorites/recent section chevrons; the
+        ;; left-pointing icon rotates down once expanded. A real button so
+        ;; keyboard and screen-reader users can toggle the subtree too.
+        [:button {:type "button"
+                  :class "flex justify-center ml-2 opacity-40"
+                  :style {:border "none" :background "transparent"
+                          :padding 0 :cursor "pointer"}
+                  :aria-label (str (if collapsed?
+                                     (t :left-side-bar/expand)
+                                     (t :left-side-bar/collapse))
+                                   " " full-name)
+                  :aria-expanded (not collapsed?)
+                  :on-click (fn [e]
+                              (util/stop e)
+                              (state/toggle-navigation-item-collapsed! collapsed-key))}
+         (ui/icon "chevron-left"
+                  {:size 14
+                   :style (when-not collapsed?
+                            {:transform "rotate(-90deg)"})})])]
+     (when (and (seq children) (not collapsed?))
        [:ul
-        (for [child (:children node)]
+        (for [child children]
           (rum/with-key (namespace-node child (inc depth)) (:name child)))])]))
 
 (rum/defc namespaces < rum/reactive db-mixins/query
@@ -370,7 +393,7 @@
    {}))
 
 (rum/defc ^:large-vars/cleanup-todo sidebar-nav
-  [route-match close-modal-fn left-sidebar-open? enable-whiteboards? srs-open?
+  [route-match close-modal-fn left-sidebar-open? enable-whiteboards? enable-namespaces? srs-open?
    *closing? close-signal touching-x-offset]
   (let [[local-closing? set-local-closing?] (rum/use-state false)
         [el-rect set-el-rect!] (rum/use-state nil)
@@ -511,11 +534,11 @@
         {:on-scroll on-contents-scroll}
         (favorites t)
 
-        (when (not config/publishing?)
-          (recent-pages t))
+        (when (and (not config/publishing?) enable-namespaces?)
+          (namespaces t))
 
         (when (not config/publishing?)
-          (namespaces t))]
+          (recent-pages t))]
 
        [:footer.px-2 {:class "create"}
         (when-not config/publishing?
@@ -583,6 +606,7 @@
         *touch-state         (::touch-state s)
         *close-signal        (::close-signal s)
         enable-whiteboards?  (state/enable-whiteboards?)
+        enable-namespaces?   (state/enable-namespaces?)
         touch-point-fn       (fn [^js e] (some-> (gobj/get e "touches") (aget 0) (#(hash-map :x (.-clientX %) :y (.-clientY %)))))
         srs-open?            (= :srs (state/sub :modal/id))
         touching-x-offset    (and (some-> @*touch-state :after)
@@ -614,7 +638,7 @@
         (reset! *touch-state nil))}
 
      ;; sidebar contents
-     (sidebar-nav route-match close-fn left-sidebar-open? enable-whiteboards? srs-open? *closing?
+     (sidebar-nav route-match close-fn left-sidebar-open? enable-whiteboards? enable-namespaces? srs-open? *closing?
        @*close-signal (and touch-pending? touching-x-offset))
      ;; resizer
      (sidebar-resizer)]))

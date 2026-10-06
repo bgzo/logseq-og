@@ -825,12 +825,26 @@
    {:left-label (t :settings-page/enable-whiteboards)
     :action (whiteboards-enabled-switcher enabled?)}))
 
+(rum/defc namespaces-enabled-switcher
+  [enabled?]
+  (ui/toggle enabled?
+             (fn []
+               (let [value (not enabled?)]
+                 (config-handler/set-config! :feature/enable-namespaces? value)))
+             true))
+
+(defn namespaces-switcher-row [enabled?]
+  (row-with-button-action
+   {:left-label (t :settings-page/enable-namespaces)
+    :action (namespaces-enabled-switcher enabled?)}))
+
 (rum/defc settings-features < rum/reactive
   []
   (let [current-repo (state/get-current-repo)
         enable-journals? (state/enable-journals? current-repo)
         enable-flashcards? (state/enable-flashcards? current-repo)
-        enable-whiteboards? (state/enable-whiteboards? current-repo)]
+        enable-whiteboards? (state/enable-whiteboards? current-repo)
+        enable-namespaces? (state/enable-namespaces? current-repo)]
     [:div.panel-wrap.is-features.mb-8
      (journal-row enable-journals?)
      (when (not enable-journals?)
@@ -847,6 +861,7 @@
                              (when (= "Enter" (util/ekey e))
                                (update-home-page e)))}]]]])
      (whiteboards-switcher-row enable-whiteboards?)
+     (namespaces-switcher-row enable-namespaces?)
      (when (and (util/electron?) config/feature-plugin-system-on?)
        (plugin-system-switcher-row))
      (when (util/electron?)
