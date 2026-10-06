@@ -254,23 +254,33 @@
             :data-ref name}
            (page-name name (get-page-icon entity) true)]))])))
 
-(rum/defc namespace-node
+(rum/defc namespace-node < rum/reactive
   [node depth]
   (let [full-name (or (:original-name node) (:name node))
         label (last (string/split full-name "/"))
-        entity (db/entity [:block/name (:name node)])]
+        entity (db/entity [:block/name (:name node)])
+        children (:children node)
+        collapsed-key (str "namespace-" (:name node))
+        collapsed? (state/sub [:ui/navigation-item-collapsed? collapsed-key])]
     [:li
      ;; Indent nested namespaces; top level shares the same left padding
      ;; as favorites/recent items.
      [:a.cursor-pointer.flex.items-center
       {:title full-name
-       :style {:padding-left (str (+ 24 (* depth 12)) "px")}
+       :style {:padding-left (str (+ 8 (* depth 12)) "px")}
        :on-click (fn [_e] (route-handler/redirect-to-page! (:name node)))}
+      (if (seq children)
+        [:span {:class "flex justify-center w-4 opacity-50"
+                :on-click (fn [e]
+                            (util/stop e)
+                            (state/toggle-navigation-item-collapsed! collapsed-key))}
+         (ui/icon (if collapsed? "chevron-right" "chevron-down") {:size 14})]
+        [:span {:class "w-4"}])
       [:span.page-icon.ml-3.justify-center (get-page-icon entity)]
       [:span.page-title label]]
-     (when (seq (:children node))
+     (when (and (seq children) (not collapsed?))
        [:ul
-        (for [child (:children node)]
+        (for [child children]
           (rum/with-key (namespace-node child (inc depth)) (:name child)))])]))
 
 (rum/defc namespaces < rum/reactive db-mixins/query
