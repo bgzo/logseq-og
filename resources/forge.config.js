@@ -48,6 +48,16 @@ if (notarize) {
 
 module.exports = {
   packagerConfig,
+  // Only rebuild the app's own native dependency. @electron/rebuild otherwise
+  // walks ancestor node_modules too (this repo's static/ lives inside the repo
+  // root), where gulp's transitive deps like fsevents 1.x cannot be built
+  // against modern Electron V8.
+  // NOTE: Keep this list in sync with the native dependencies in
+  // resources/package.json. Modules missing here are silently skipped by
+  // forge and only fail at runtime in packaged builds (ABI mismatch).
+  rebuildConfig: {
+    onlyModules: ['better-sqlite3'],
+  },
   makers: [
     {
       'name': '@electron-forge/maker-squirrel',
