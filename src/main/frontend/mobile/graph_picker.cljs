@@ -60,10 +60,7 @@
                                        (p/then
                                         (fn []
                                           (web-nfs/ls-dir-files-with-path!
-                                           graph-path (merge
-                                                       {:ok-handler
-                                                        (fn [] nil)}
-                                                       opts))
+                                           graph-path opts)
                                           (notification/show! (str "Create graph: " graph-name) :success)))
                                        (p/catch (fn [^js e]
                                                   (notification/show! (str e) :error)

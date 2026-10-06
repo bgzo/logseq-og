@@ -228,10 +228,4 @@
 
   ;; :date 2020-05-31
   ;; :rfc822 Sun, 31 May 2020 03:00:57 Z
-
-  (let [info {:ExpireTime 1680781356,
-              :UserGroups [],
-              :LemonRenewsAt "2024-04-11T07:28:00.000000Z",
-              :LemonEndsAt nil,
-              :LemonStatus "active"}]
-    (->> info :LemonRenewsAt (tf/parse iso-parser) (< (js/Date.)))))
+  )
