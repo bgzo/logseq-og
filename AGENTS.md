@@ -42,6 +42,7 @@ Guidance for OpenCode sessions in this repo. Deeper background lives in `CODEBAS
 - Don't edit generated files: `static/**`, `src/main/frontend/tldraw-logseq.js`, `resources/js/ui.js`, `packages/ui/.storybook/cljs`.
 - If `resources/package.json` dependencies change, run `cd static && yarn install` and commit `static/yarn.lock`; CI fails on a stale lockfile.
 - Electron 44.5.1 is pinned in three places: root `package.json`, `resources/package.json` (`electron` and `rebuild:all -v 44.5.1`). Update them together. Keep `better-sqlite3` at 13+ (N-API prebuilds) and `node-abi` current when bumping Electron.
+- `resources/forge.config.js`'s `rebuildConfig.onlyModules` limits forge's native-module rebuild to the names listed there. Add any new native dependency from `resources/package.json` to that list, or packaged builds fail at runtime with an ABI mismatch.
 - Fork identity: use the `logseq-og` URL scheme (`frontend.util.url`), `~/.logseq-og` global dir, mobile appId `com.logseq.og`, and Electron bundle id `com.logseq.logseq-og` — don't reintroduce upstream `logseq://` / `~/.logseq` defaults.
 - App version lives in `src/main/frontend/version.cljs`; `scripts/get-pkg-version.js` and gulp's `electronMaker` derive from it.
 - No Clojure(Script) formatter is enforced and formatting is inconsistent; don't reformat unrelated code. PRs reject formatting/whitespace churn and drive-by dependency bumps (`CONTRIBUTING.md`).
