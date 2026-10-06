@@ -275,23 +275,24 @@
 
 (rum/defc namespaces < rum/reactive db-mixins/query
   [t]
-  (let [relations (some-> (db/react-query (state/get-current-repo)
-                                          {:query db-model/namespace-relations-query}
-                                          {})
-                          util/react)
-        forest (db-model/get-namespace-forest relations)]
-    (when (seq forest)
-      (nav-content-item
-       [:a.flex.items-center.text-sm.font-medium.rounded-md.wrap-th
-        (ui/icon "sitemap" {:size 16})
-        [:strong.flex-1.ml-2 (string/upper-case (t :left-side-bar/nav-namespaces))]]
+  (when (state/enable-namespaces?)
+    (let [relations (some-> (db/react-query (state/get-current-repo)
+                                            {:query db-model/namespace-relations-query}
+                                            {})
+                            util/react)
+          forest (db-model/get-namespace-forest relations)]
+      (when (seq forest)
+        (nav-content-item
+         [:a.flex.items-center.text-sm.font-medium.rounded-md.wrap-th
+          (ui/icon "sitemap" {:size 16})
+          [:strong.flex-1.ml-2 (string/upper-case (t :left-side-bar/nav-namespaces))]]
 
-       {:class "namespaces"
-        :count (count forest)}
+         {:class "namespaces"
+          :count (count forest)}
 
-       [:ul.text-sm
-        (for [node forest]
-          (rum/with-key (namespace-node node 0) (:name node)))]))))
+         [:ul.text-sm
+          (for [node forest]
+            (rum/with-key (namespace-node node 0) (:name node)))])))))
 
 (rum/defcs flashcards < db-mixins/query rum/reactive
   {:did-mount (fn [state]
@@ -512,10 +513,10 @@
         (favorites t)
 
         (when (not config/publishing?)
-          (recent-pages t))
+          (namespaces t))
 
         (when (not config/publishing?)
-          (namespaces t))]
+          (recent-pages t))]
 
        [:footer.px-2 {:class "create"}
         (when-not config/publishing?

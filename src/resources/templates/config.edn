@@ -73,6 +73,10 @@
  ;; Default value: true
  ;; :feature/enable-whiteboards? true
 
+ ;; Show namespaces in the left sidebar.
+ ;; Default value: false
+ ;; :feature/enable-namespaces? true
+
  ;; Disable the journal's built-in 'Scheduled tasks and deadlines' query.
  ;; Default value: false
  ;; :feature/disable-scheduled-and-deadline-query? false

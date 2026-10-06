@@ -213,6 +213,7 @@
  :settings-page/enable-journals "开启日记"
  :settings-page/enable-all-pages-public "发布所有页面"
  :settings-page/enable-whiteboards "激活白板功能"
+ :settings-page/enable-namespaces "侧边栏显示命名空间"
  :settings-page/native-titlebar "原生标题栏"
  :settings-page/native-titlebar-desc "在Windows和Linux上启用系统原生风格的窗口标题栏。"
  :settings-page/home-default-page "设置首页默认页面"
