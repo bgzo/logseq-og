@@ -166,8 +166,9 @@ exports.electron = (done) => {
     stdio: 'inherit'
   })
 
-  // Gulp 4 treats a task returning undefined as incomplete. Without done()
-  // quitting the app exits with "did not complete" and status 1.
+  // Gulp 4 needs an explicit completion signal: a zero-argument task that
+  // returns undefined is not considered complete, so without done() closing
+  // the app would exit 1 with "Did you forget to signal async completion?".
   done()
 }
 
