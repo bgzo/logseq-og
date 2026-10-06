@@ -75,7 +75,8 @@ test('update whiteboard title', async ({ page }) => {
 })
 
 test('draw a rectangle', async ({ page }) => {
-  const canvas = await page.waitForSelector('.logseq-tldraw')
+  const canvas = page.locator('.logseq-tldraw')
+  await canvas.waitFor()
   const bounds = (await canvas.boundingBox())!
 
   await page.keyboard.type('wr')
@@ -106,7 +107,8 @@ test('redo the rectangle action', async ({ page }) => {
 })
 
 test('clone the rectangle', async ({ page }) => {
-  const canvas = await page.waitForSelector('.logseq-tldraw')
+  const canvas = page.locator('.logseq-tldraw')
+  await canvas.waitFor()
   const bounds = (await canvas.boundingBox())!
 
   await page.mouse.move(bounds.x + 400, bounds.y + 400)
@@ -155,7 +157,8 @@ test('undo the group action', async ({ page }) => {
 })
 
 test('connect rectangles with an arrow', async ({ page }) => {
-  const canvas = await page.waitForSelector('.logseq-tldraw')
+  const canvas = page.locator('.logseq-tldraw')
+  await canvas.waitFor()
   const bounds = (await canvas.boundingBox())!
 
   await page.keyboard.type('wc')
@@ -188,7 +191,8 @@ test('undo the delete action', async ({ page }) => {
 })
 
 test('convert the first rectangle to ellipse', async ({ page }) => {
-  const canvas = await page.waitForSelector('.logseq-tldraw')
+  const canvas = page.locator('.logseq-tldraw')
+  await canvas.waitFor()
   const bounds = (await canvas.boundingBox())!
 
   await page.keyboard.press('Escape')
@@ -225,7 +229,8 @@ test('undo the shape conversion', async ({ page }) => {
 })
 
 test('locked elements should not be removed', async ({ page }) => {
-  const canvas = await page.waitForSelector('.logseq-tldraw')
+  const canvas = page.locator('.logseq-tldraw')
+  await canvas.waitFor()
   const bounds = (await canvas.boundingBox())!
 
   await page.keyboard.press('Escape')
@@ -272,7 +277,8 @@ test('cleanup the shapes', async ({ page }) => {
 })
 
 test('create a block', async ({ page }) => {
-  const canvas = await page.waitForSelector('.logseq-tldraw')
+  const canvas = page.locator('.logseq-tldraw')
+  await canvas.waitFor()
   const bounds = (await canvas.boundingBox())!
 
   await page.keyboard.type('ws')
@@ -309,7 +315,8 @@ test('undo the block action', async ({ page }) => {
 })
 
 test('copy/paste url to create an iFrame shape', async ({ page }) => {
-  const canvas = await page.waitForSelector('.logseq-tldraw')
+  const canvas = page.locator('.logseq-tldraw')
+  await canvas.waitFor()
   const bounds = (await canvas.boundingBox())!
 
   await page.keyboard.type('wt')
@@ -328,7 +335,8 @@ test('copy/paste url to create an iFrame shape', async ({ page }) => {
 })
 
 test('copy/paste X status url to create a Post shape', async ({ page }) => {
-  const canvas = await page.waitForSelector('.logseq-tldraw')
+  const canvas = page.locator('.logseq-tldraw')
+  await canvas.waitFor()
   const bounds = (await canvas.boundingBox())!
 
   await page.keyboard.type('wt')
@@ -347,7 +355,8 @@ test('copy/paste X status url to create a Post shape', async ({ page }) => {
 })
 
 test('copy/paste twitter status url to create a Tweet shape', async ({ page }) => {
-  const canvas = await page.waitForSelector('.logseq-tldraw')
+  const canvas = page.locator('.logseq-tldraw')
+  await canvas.waitFor()
   const bounds = (await canvas.boundingBox())!
 
   await page.keyboard.type('wt')
@@ -366,7 +375,8 @@ test('copy/paste twitter status url to create a Tweet shape', async ({ page }) =
 })
 
 test('copy/paste youtube video url to create a Youtube shape', async ({ page }) => {
-  const canvas = await page.waitForSelector('.logseq-tldraw')
+  const canvas = page.locator('.logseq-tldraw')
+  await canvas.waitFor()
   const bounds = (await canvas.boundingBox())!
 
   await page.keyboard.type('wt')
@@ -419,7 +429,7 @@ test('quick add another whiteboard', async ({ page }) => {
   await page.fill('.whiteboard-page-title input', 'my-whiteboard-3')
   await page.keyboard.press('Enter')
 
-  const canvas = await page.waitForSelector('.logseq-tldraw')
+  const canvas = page.locator('.logseq-tldraw')
   await canvas.dblclick({
     position: {
       x: 200,
@@ -455,7 +465,7 @@ test('go to another board and check reference', async ({ page }) => {
 })
 
 test('Create an embedded whiteboard', async ({ page }) => {
-  const canvas = await page.waitForSelector('.logseq-tldraw')
+  const canvas = page.locator('.logseq-tldraw')
   await canvas.dblclick({
     position: {
       x: 110,
@@ -477,13 +487,13 @@ test('Create an embedded whiteboard', async ({ page }) => {
 })
 
 test('New whiteboard should have the correct name', async ({ page }) => {
-  page.locator('.tl-logseq-portal-header a').click()
+  await page.locator('.tl-logseq-portal-header a').click()
 
   await expect(page.locator('.whiteboard-page-title')).toContainText('My embedded whiteboard')
 })
 
 test('Create an embedded page', async ({ page }) => {
-  const canvas = await page.waitForSelector('.logseq-tldraw')
+  const canvas = page.locator('.logseq-tldraw')
   await canvas.dblclick({
     position: {
       x: 150,
@@ -505,7 +515,7 @@ test('Create an embedded page', async ({ page }) => {
 })
 
 test('New page should have the correct name', async ({ page }) => {
-  page.locator('.tl-logseq-portal-header a').click()
+  await page.locator('.tl-logseq-portal-header a').click()
 
   await expect(page.locator('.ls-page-title')).toContainText('My page')
 })
