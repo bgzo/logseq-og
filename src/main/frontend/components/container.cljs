@@ -273,11 +273,17 @@
       [:span.page-title label]
       (when (seq children)
         ;; Right-aligned like the favorites/recent section chevrons; the
-        ;; left-pointing icon rotates down once expanded.
-        [:span {:class "flex justify-center ml-2 opacity-40"
-                :on-click (fn [e]
-                            (util/stop e)
-                            (state/toggle-navigation-item-collapsed! collapsed-key))}
+        ;; left-pointing icon rotates down once expanded. A real button so
+        ;; keyboard and screen-reader users can toggle the subtree too.
+        [:button {:type "button"
+                  :class "flex justify-center ml-2 opacity-40"
+                  :style {:border "none" :background "transparent"
+                          :padding 0 :cursor "pointer"}
+                  :aria-label full-name
+                  :aria-expanded (not collapsed?)
+                  :on-click (fn [e]
+                              (util/stop e)
+                              (state/toggle-navigation-item-collapsed! collapsed-key))}
          (ui/icon "chevron-left"
                   {:size 14
                    :style (when-not collapsed?
