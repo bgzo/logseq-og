@@ -43,6 +43,7 @@
             [frontend.handler.search :as search-handler]
             [frontend.handler.shell :as shell-handler]
             [frontend.handler.ui :as ui-handler]
+            [frontend.handler.webdav :as webdav-handler]
             [frontend.handler.whiteboard :as whiteboard-handler]
             [frontend.handler.web.nfs :as nfs-handler]
             [frontend.mobile.core :as mobile]
@@ -76,7 +77,8 @@
       (route-handler/redirect! {:to :import :query-params {:from "picker"}})
       (route-handler/redirect-to-home!)))
   (when-let [dir-name (config/get-repo-dir repo)]
-    (fs/watch-dir! dir-name)))
+    (fs/watch-dir! dir-name))
+  (webdav-handler/on-graph-ready! repo))
 
 ;; FIXME(andelf): awful multi-arty function.
 ;; Should use a `-impl` function instead of the awful `skip-ios-check?` param with nested callback.

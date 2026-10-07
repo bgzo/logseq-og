@@ -94,11 +94,13 @@
                      (p/let [d (first dirs)
                              files (<readdir d)
                              files (->> files
-                                        (remove (fn [{:keys [name  type]}]
+                                        (remove (fn [{:keys [name type] :as entry}]
                                                   (or (string/starts-with? name ".")
                                                       (and (= type "directory")
                                                            (or (= name "bak")
-                                                               (= name "version-files")))))))
+                                                               (= name "version-files")
+                                                               (and (= name "webdav")
+                                                                    (string/includes? (str (:uri entry)) "logseq/webdav"))))))))
                              files-dir (->> files
                                             (filterv #(= (:type %) "directory"))
                                             (mapv :uri))
@@ -119,11 +121,13 @@
                      (p/let [d (first dirs)
                              files (<readdir d)
                              files (->> files
-                                        (remove (fn [{:keys [name  type]}]
+                                        (remove (fn [{:keys [name type] :as entry}]
                                                   (or (string/starts-with? name ".")
                                                       (and (= type "directory")
                                                            (or (= name "bak")
-                                                               (= name "version-files")))))))
+                                                               (= name "version-files")
+                                                               (and (= name "webdav")
+                                                                    (string/includes? (str (:uri entry)) "logseq/webdav"))))))))
                              files-dir (->> files
                                             (filterv #(= (:type %) "directory"))
                                             (mapv :uri))

@@ -10,7 +10,7 @@
   [".ds_store" "thumbs.db" "desktop.ini"])
 
 (def ^:private ignored-regex
-  #"(?i)\.(tmp|part|crdownload|icloud)$")
+  #"(?i)(\.(tmp|part|crdownload|icloud)|\.webdav-tmp-\d+)$")
 
 (defn hidden-segment?
   [segment]
