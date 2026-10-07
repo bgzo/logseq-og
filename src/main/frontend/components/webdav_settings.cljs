@@ -179,12 +179,15 @@
                              :on-done
                              (fn []
                                (-> (webdav-handler/test-connection! repo)
-                                   (p/then (fn [ok?]
+                                   (p/then (fn [{:keys [ok status]}]
                                              (notification/show!
-                                              (if ok?
-                                                (t :webdav/test-success)
-                                                (t :webdav/test-failed))
-                                              (if ok? :success :error)
+                                              (cond
+                                                ok (t :webdav/test-success)
+                                                (contains? #{401 403} status) (t :webdav/test-failed-auth)
+                                                (= 404 status) (t :webdav/test-missing-dir)
+                                                :else (str (t :webdav/test-failed)
+                                                           (when status (str " (HTTP " status ")"))))
+                                              (if ok :success :error)
                                               false)))
                                    (p/catch (fn [e]
                                               (notification/show!

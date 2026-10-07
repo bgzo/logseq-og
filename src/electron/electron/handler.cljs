@@ -591,7 +591,10 @@
 
 (defmethod handle :webdavFetch [_window [_ opts]]
   (-> (webdav/fetch! opts)
-      (p/catch (fn [e] {:error (str e)}))))
+      (p/catch (fn [e]
+                 ;; log url + error only: headers/body may carry credentials
+                 (logger/error ::webdav-fetch (:url opts) e)
+                 {:error (str e)}))))
 
 (defmethod handle :webdavCredentials [_window [_ {:keys [op graph-key username password]}]]
   ;; Never throw: the IPC error logger would print the payload (password),

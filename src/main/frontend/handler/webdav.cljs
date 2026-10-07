@@ -91,11 +91,15 @@
     (if (or (string/blank? (:url config))
             (string/blank? (:username config))
             (string/blank? (:password creds)))
-      (p/resolved false)
+      (p/resolved {:ok false :status nil})
       (let [base (engine/base-url config)
             c (client/make-client http-impl {:parse-xml xml/parse
-                                        :gap-ms (:request-gap-ms config 100)})]
-        (client/test-connection! c base)))))
+                                             :gap-ms (:request-gap-ms config 100)})]
+        (-> (client/test-connection! c base)
+            (p/catch (fn [e]
+                       {:ok false
+                        :status nil
+                        :error (str e)})))))))
 
 (defonce scheduler-interval-ms 30000)
 

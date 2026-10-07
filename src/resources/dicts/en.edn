@@ -710,6 +710,8 @@
  :webdav/save-failed              "Failed to save WebDAV settings:"
  :webdav/test-success             "WebDAV connection OK."
  :webdav/test-failed              "WebDAV connection failed."
+ :webdav/test-failed-auth         "Authentication failed; check the username and app password."
+ :webdav/test-missing-dir         "Remote directory not found; it will be created on first sync."
  :webdav/gitignore-hint           "Using git? Add `logseq/webdav/` to .gitignore yourself; this app never edits it."
  :webdav/summary-uploads          "uploaded"
  :webdav/summary-downloads        "downloaded"

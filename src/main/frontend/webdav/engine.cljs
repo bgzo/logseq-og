@@ -190,6 +190,7 @@
                           (throw (ex-info "Files from another folder-sync tool detected"
                                           {:reason :external-artifacts
                                            :artifacts (vec (take 5 (:external-artifacts local)))})))
+                      _ (client/mkcol! client base)
                       remote (client/list-tree client base {})
                       plan* (plan/plan {:manifest manifest*
                                         :local (:files local)

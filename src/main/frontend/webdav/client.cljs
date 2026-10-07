@@ -222,6 +222,8 @@
     (ensure-parents-loop client base dirs created)))
 
 (defn test-connection!
+  "PROPFIND the configured remote root. Resolves to
+   {:ok boolean :status number|nil}."
   [client base]
   (-> (send! client {:url base
                      :method "PROPFIND"
@@ -229,4 +231,5 @@
                                "Content-Type" "application/xml; charset=utf-8"}
                      :body propfind-body})
       (p/then (fn [{:keys [status]}]
-                (contains? #{200 207} status)))))
+                {:ok (contains? #{200 207} status)
+                 :status status}))))
