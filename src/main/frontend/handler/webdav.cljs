@@ -130,7 +130,7 @@
 (defn on-graph-ready!
   "Called after a graph finished loading: schedule a pull shortly after."
   [repo]
-  (when (util/electron?)
+  (when (and (util/electron?) (not util/node-test?))
     (start-scheduler!)
     (js/setTimeout
      (fn []

@@ -19,7 +19,9 @@
         repo-config (edn/read-string (str (fs/readFileSync (node-path/join graph-dir "logseq/config.edn"))))
         files (#'gp-cli/build-graph-files graph-dir repo-config)
         _ (test-helper/with-config repo-config
-            (repo-handler/parse-files-and-load-to-db! test-helper/test-db files {:re-render? false :verbose false}))
+            ;; :refresh? avoids fire-and-forget default-file creation that can
+            ;; outlive the per-test db fixture and crash later tests
+            (repo-handler/parse-files-and-load-to-db! test-helper/test-db files {:re-render? false :verbose false :refresh? true}))
         db (conn/get-db test-helper/test-db)]
 
     (docs-graph-helper/docs-graph-assertions db graph-dir (map :file/path files))))

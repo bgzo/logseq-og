@@ -7,6 +7,7 @@
             [frontend.components.conversion :as conversion-component]
             [frontend.components.plugins :as plugins]
             [frontend.components.svg :as svg]
+            [frontend.components.webdav-settings :as webdav-settings]
             [frontend.config :as config]
             [frontend.context.i18n :refer [t]]
             [frontend.date :as date]
@@ -928,6 +929,9 @@
                (when (util/electron?)
                  [:version-control "git" (t :settings-page/tab-version-control) (ui/icon "history")])
 
+               (when (util/electron?)
+                 [:sync "sync" (t :settings-page/tab-sync) (ui/icon "cloud")])
+
                ;; (when (util/electron?)
                ;;   [:assets "assets" (t :settings-page/tab-assets) (ui/icon "box")])
 
@@ -969,6 +973,9 @@
 
          :version-control
          (settings-git)
+
+         :sync
+         (webdav-settings/settings-content current-repo)
 
          :assets
          (assets/settings-content)
