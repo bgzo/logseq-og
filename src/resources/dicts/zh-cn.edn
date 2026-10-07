@@ -650,6 +650,8 @@
  :webdav/test-failed                      "WebDAV 连接失败。"
  :webdav/test-failed-auth                 "认证失败，请检查用户名和应用密码。"
  :webdav/test-missing-dir                 "远端目录不存在，首次同步时会自动创建。"
+ :webdav/error-unauthenticated            "缺少用户名或密码，请先保存凭据。"
+ :webdav/error-external-artifacts         "检测到其他目录同步工具的文件，已暂停同步。"
  :webdav/gitignore-hint                   "如果这个图也用 git 管理，请自行把 `logseq/webdav/` 加入 .gitignore；应用不会自动修改。"
  :webdav/summary-uploads                  "上传"
  :webdav/summary-downloads                "下载"

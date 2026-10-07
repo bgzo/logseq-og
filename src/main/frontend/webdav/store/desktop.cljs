@@ -1,7 +1,8 @@
 (ns frontend.webdav.store.desktop
   "Desktop store: config/manifest under ~/.logseq-og/webdav/<graph-key>/,
    credentials encrypted via Electron safeStorage (main process)."
-  (:require [cljs.reader :as reader]
+  (:require [cljs-bean.core :as bean]
+            [cljs.reader :as reader]
             [clojure.string :as string]
             [electron.ipc :as ipc]
             [frontend.config :as config]
@@ -87,11 +88,13 @@
 
   (load-credentials [_ repo]
     (-> (ipc/ipc :webdavCredentials {:op :load :graph-key (key-of repo)})
+        (p/then bean/->clj)
         (p/then (fn [res]
                   (when-not (:error res) res)))))
 
   (save-credentials [_ repo creds]
     (-> (ipc/ipc :webdavCredentials (merge {:op :save :graph-key (key-of repo)} creds))
+        (p/then bean/->clj)
         (p/then (fn [res]
                   (if (:error res)
                     (throw (ex-info (str "Failed to store credentials: " (:error res)) {}))

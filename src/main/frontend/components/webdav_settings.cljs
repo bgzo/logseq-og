@@ -46,7 +46,10 @@
                (t :webdav/summary-uploads) " " (:uploads status 0) ", "
                (t :webdav/summary-downloads) " " (:downloads status 0) ", "
                (t :webdav/summary-conflicts) " " (:conflicts status 0))
-    :error (str (t :webdav/status-error) ": " (:error status))
+    :error (case (:reason status)
+             :unauthenticated (t :webdav/error-unauthenticated)
+             :external-artifacts (t :webdav/error-external-artifacts)
+             (str (t :webdav/status-error) ": " (:error status)))
     :blocked (str (t :webdav/status-blocked)
                   ": "
                   (case (:reason status)
