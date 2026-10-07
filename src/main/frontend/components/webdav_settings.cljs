@@ -56,14 +56,22 @@
     :locked (t :webdav/status-locked)
     (t :webdav/status-idle)))
 
-(rum/defc settings-content < rum/reactive
+(rum/defc webdav-status-line < rum/reactive
+  [repo]
+  (let [status (state/sub [:webdav/status repo])]
+    [:div.text-sm
+     [:span.font-medium (str (t :webdav/status) ": ")]
+     [:span (phase-text status)]
+     (when-let [at (:at status)]
+       [:span.opacity-50 (str " (" at ")")])]))
+
+(rum/defc settings-content
   [repo]
   (let [[config set-config!] (rum/use-state nil)
         [password set-password!] (rum/use-state "")
         [saving? set-saving!] (rum/use-state false)
         [testing? set-testing!] (rum/use-state false)
         [syncing? set-syncing!] (rum/use-state false)
-        status (state/sub [:webdav/status repo])
         set-field! (fn [k v] (set-config! (assoc config k v)))]
     (rum/use-effect!
      (fn []
@@ -197,8 +205,4 @@
                                (-> (webdav-handler/sync-now! repo)
                                    (p/finally (fn [] (set-syncing! false)))))})))]
 
-       [:div.text-sm
-        [:span.font-medium (str (t :webdav/status) ": ")]
-        [:span (phase-text status)]
-        (when-let [at (:at status)]
-          [:span.opacity-50 (str " (" at ")")])]])))
+       (webdav-status-line repo)])))
