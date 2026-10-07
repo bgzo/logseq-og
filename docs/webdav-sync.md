@@ -25,11 +25,16 @@
 | --- | --- |
 | 平台 | 桌面（Electron）+ 移动（iOS/Android Capacitor） |
 | 触发 | 手动 + 打开图 + 定时轮询（保存后触发留到后续） |
-| 冲突 | 保留双方副本：远端版本落盘到 `logseq/webdav/conflicts`，本地版本继续作为正文并上传 |
+| 冲突 | **每设备可配置策略**：`:prefer-local`（默认）/ `:prefer-remote`；败方版本强制保留到 `logseq/webdav/conflicts`，不写 `logseq/bak` |
 | 删除 | MVP 不传播删除（两侧删除都记入 manifest 墓碑，避免文件复活） |
-| 认证 | HTTP Basic over HTTPS |
+| 重命名 | MVP 不做远端 `MOVE`，表现同新增；与删除传播一起放后续里程碑 |
+| 认证 | HTTP Basic over HTTPS（坚果云需应用密码） |
 | 同步粒度 | 文件级（graph 目录 ↔ WebDAV 远端目录），不改 DB 层同步 |
-| git 仓库 | 开启同步时仅**提示**用户向 `.gitignore` 添加 `logseq/webdav/`，不自动修改 `.gitignore` |
+| 移动端凭据 | `@capacitor/preferences`（app 私有沙箱）；安全存储插件为后续增强 |
+| 大文件 | 单文件固定 100MB 上限，超限跳过并提示（可配置阈值为后续增强） |
+| 冲突副本 | 强制保留，不做关闭开关 |
+| git 仓库 | 只提示用户向 `.gitignore` 添加 `logseq/webdav/`，不自动修改；配置了 remote 时强警告 |
+| iCloud | 硬禁止：启用 iCloud 的图不可启用 WebDAV（3.6） |
 
 ---
 
@@ -99,16 +104,27 @@ manifest v1（EDN）：
 - 本地变化 = 当前 `mtime`/`size` 与 manifest `:local` 不同（MVP 不做内容哈希；后续可加）。
 - 远端变化 = 当前 `etag` 与 manifest `:remote.etag` 不同；服务器不返回 etag 时退化为 `getlastmodified` + `size`。
 
-### 3.3 冲突处理（MVP）
+### 3.3 冲突处理（可配置策略）
 
-1. 下载远端版本内容，保存到图的 `logseq/webdav/conflicts/<yyyyMMdd-HHmmss>/<相对路径>`。
-   - 该目录接入忽略清单（见 4.6），不会进入 DB，也不会再次同步。
-   - **不写入 `logseq/bak`**：与「关闭文件备份」（#11 的 `:feature/enable-backup?`）不冲突。冲突副本只在冲突时产生，语义上是"同步救援"，不是常规变更备份。
-   - 冲突副本始终保留，即使关闭了 bak 备份（数据安全优先）；后续如需彻底关闭可加同步级开关。
-2. 保持本地文件内容不变，并上传本地版本覆盖远端。
-3. 更新 manifest（上传后的远端元数据）。
-4. 通知用户冲突路径，提示备份位置。
-5. MVP 不做自动合并。
+**冲突定义**：同一路径在 manifest 记录之后两侧都发生了变化，或首次同步时两侧已有同名文件。冲突时**永远保留败方版本**，不允许静默丢弃。
+
+配置项 `:conflict-policy`（每设备，默认 `:prefer-local`）：
+
+- `:prefer-local`（优先本地）：本地内容保留在正文并上传远端；远端版本保存到 `logseq/webdav/conflicts/<yyyyMMdd-HHmmss>/<相对路径>`。
+- `:prefer-remote`（优先远端）：远端内容下载并覆盖本地正文；覆盖前的本地内容保存到同一备份目录。
+
+两种策略的公共行为：
+
+1. 备份目录接入忽略清单（见 4.6），不会进入 DB，也不会再次同步；**不写入 `logseq/bak`**，与「关闭文件备份」（#11 的 `:feature/enable-backup?`）解耦：冲突副本只在冲突时产生，是"同步救援"，不是常规变更备份。
+2. 冲突副本强制保留，即使关闭了 bak 备份（无关闭开关，数据安全优先）。
+3. 上传/下载完成后更新 manifest；通知用户冲突路径与备份位置。
+4. MVP 不做自动合并（后续接 `frontend.fs.diff-merge`）。
+
+多设备收敛说明：
+
+- 各设备都设 `:prefer-local`：同一文件反复冲突时表现为"最后同步的设备获胜"，另一台的版本在备份目录里；不会无限循环，但远端版本会来回覆盖。
+- 各设备都设 `:prefer-remote`：以"先上传的版本"为准，后同步的设备把本地编辑存入备份并接受远端，收敛方向稳定。
+- 建议：多设备场景统一用 `:prefer-remote`，只给主力编辑设备临时设 `:prefer-local`。
 
 ### 3.4 删除与重命名
 
@@ -250,29 +266,49 @@ src/electron/electron/webdav.cljs       ; IPC：fetch / safeStorage / 多窗口�
 | --- | --- | --- |
 | 列目录 | `PROPFIND` Depth: 1，请求 `D:prop`（getetag/getlastmodified/getcontentlength/resourcetype） | 递归逐目录扫描 |
 | 下载 | `GET` | 文本按 UTF-8，二进制按 base64 落盘 |
-| 上传 | `PUT` | 先确保父目录 `MKCOL`；成功后从响应 ETag 或补一次 PROPFIND 获取新 etag |
-| 建目录 | `MKCOL` | 已存在（405）视为成功 |
-| 删除/移动 | MVP 不使用 | 后续里程碑 |
+| 上传 | `PUT` | 先确保父目录 `MKCOL`；坚果云返回 201/204 且**无 ETag 响应头**，需 PUT 后 PROPFIND 获取新 etag（带重试，见 5.2） |
+| 建目录 | `MKCOL` | 已存在都视为成功（坚果云对已存在也返回 201，部分服务器返回 405） |
+| 删除/移动 | MVP 不使用 | 后续里程碑（坚果云已实测支持 `DELETE`/`MOVE`） |
 
 - URL 拼接：远端根 + 相对路径，逐段 percent-encode（非 ASCII 文件名必须编码）。
 - XML 解析用 `DOMParser`，按 `localName` 匹配，忽略命名空间前缀差异。
-- `href` 需 URL-decode 后去掉远端根前缀，得到相对路径。
+- `href` 需 URL-decode（编码大小写不敏感）后剥离配置前缀，得到相对路径；坚果云等服务器返回的是服务器绝对路径（如 `/dav/<user>/...`）。
 
 ### 5.2 服务器兼容
 
-首批必须验证：**Nextcloud、坚果云、Synology WebDAV**（rclone serve 用于 CI）。
+验证状态：坚果云已实测（见下）；**Nextcloud、Synology 待验证**（rclone serve 用于 CI）。
 
 已知差异点：
 
 - 坚果云有请求频率限制，需串行 + 节流（默认请求间隔 ≥100ms）并对 429 退避；需使用应用密码。
 - Nextcloud 大文件 PUT 可能要求分块（MVP 限制单文件 <100MB，超限跳过并提示，后续做分块）。
-- 部分服务器 etag 带引号/弱 etag；统一按原样字符串比较。
+- etag 格式差异：坚果云无引号（22 字符 base64url），其他服务器可能带引号/弱 etag；统一按原样字符串比较。
 - `getlastmodified` 为 RFC1123，解析失败时仅依赖 etag/size。
+- 服务器大小写敏感（坚果云：`ETag-Test.md` 与 `etag-test.md` 可共存），而 macOS/Windows 本地不敏感；扫描发现仅大小写差异的路径时跳过并提示，避免互相覆盖（参考旧 sync 的 case-different 过滤）。
+
+#### 坚果云实测记录（2026-10-07，`dav.jianguoyun.com`，真实凭证）
+
+| 项 | 实测结果 |
+| --- | --- |
+| 能力 | `OPTIONS` 返回 DAV 2；支持 DELETE/GET/LOCK/UNLOCK/MKCOL/MOVE/OPTIONS/PROPFIND/PUT/COPY |
+| 认证 | HTTP Basic + 应用密码 |
+| MKCOL | 新建 201；**已存在也返回 201**（不能依赖 405 判断） |
+| PUT | 新建返回 201、更新返回 204；**响应无 ETag 头**，带 `x-file-version`（内容变化才递增） |
+| ETag | 无引号、22 字符 base64url；**内容寻址**：不同文件同内容 etag 相同、同内容重复上传 etag 不变。但不是 md5/sha1/sha256 可客户端复现的哈希 → 不能本地预计算，仅用于远端新旧/跨路径比较 |
+| PROPFIND | 207；命名空间前缀 `d:`；`href` 为服务器绝对路径（`/dav/<user>/<dir>/...`），需剥离配置前缀 |
+| 非 ASCII | 文件名需逐段 percent-encode 上传；href 回传为**小写**编码（`%e4%b8%ad`），解码需大小写不敏感 |
+| PUT 后一致性 | PUT 后短时间内 PROPFIND 可能返回 `propstat` 404（属性暂不可用），需短重试；实测数秒内恢复 |
+| 缺失父目录 | PUT 返回 409，需先 MKCOL |
+| MOVE | 支持；`Destination` 用绝对路径 `/dav/...` |
+| DELETE | 返回 204 |
+| 限流 | 12 次快速 PROPFIND 均 207，未见 429；仍保持节流与退避 |
+| 内容类型 | `getcontenttype` 一律 `application/octet-stream`，不按扩展名探测（不影响同步） |
 
 ### 5.3 错误与重试
 
 - 超时：连接/读取各 30s。
 - 重试：网络错误、429、5xx 退避重试 3 次（指数退避，尊重 `Retry-After`）。
+- PUT 后补 etag 的 PROPFIND：遇到 `propstat` 404 需短重试（如 500ms 间隔、最多 5 次）。
 - 401/403：暂停自动同步，提示检查账号/密码/权限，保留上次 manifest。
 - 单个文件失败不中断整轮：记入本轮错误列表，其余继续，最后汇总通知。
 - 错误状态进入 `[:webdav/status repo]`，UI 可见。
@@ -286,8 +322,9 @@ src/electron/electron/webdav.cljs       ; IPC：fetch / safeStorage / 多窗口�
 ```edn
 {:enabled false
  :url "https://dav.example.com/remote.php/dav/files/user"
- :remote-root "/logseq-og/my-graph"     ; 相对 url 的远端目录
+ :remote-root "/logseq-og/my-graph"      ; 相对 url 的远端目录
  :username "user"
+ :conflict-policy :prefer-local          ; :prefer-local | :prefer-remote（每设备）
  :interval 300
  :verify-tls true                        ; MVP 固定 true，不提供关闭
  :request-gap-ms 100
@@ -317,6 +354,7 @@ src/electron/electron/webdav.cljs       ; IPC：fetch / safeStorage / 多窗口�
 
 - 设置页新增 **Sync / 同步** 区块（桌面与移动同一个逻辑组件）：
   - 启用开关、服务器 URL、用户名、密码（掩码、只写）、远端目录、同步间隔；
+  - 冲突处理：优先本地 / 优先远端（默认优先本地，附 3.3 的收敛说明）；
   - 「测试连接」（PROPFIND 远端根）；
   - 「立即同步」；
   - 状态行：上次同步时间、结果（成功/失败原因）、进行中进度。
@@ -333,7 +371,7 @@ src/electron/electron/webdav.cljs       ; IPC：fetch / safeStorage / 多窗口�
 
 - 单测（`src/test/frontend/webdav/`，`yarn test` 可跑）：
   - `plan_test`：3.2 状态表的全部分支（表驱动）；
-  - `client_test`：PROPFIND multistatus 解析（Nextcloud / 坚果云 / 无命名空间三类 fixture）、href 解码、URL 编码；
+  - `client_test`：PROPFIND multistatus 解析（Nextcloud / 坚果云实测样本 / 无命名空间三类 fixture），含无引号 etag、服务器绝对路径 href、小写 percent-encoding、`propstat` 404 重试；URL 编码；
   - `manifest_test`：编解码、损坏恢复、墓碑转换；
   - 忽略规则：`deps/common` 的 `ignored-path?` 补充 `logseq/webdav` 用例。
 - 集成（Node 环境，stub HTTP adapter + `frontend.fs.memory-fs` 或临时目录）：
@@ -354,71 +392,21 @@ src/electron/electron/webdav.cljs       ; IPC：fetch / safeStorage / 多窗口�
 - **M4 稳定化**：错误/限流/退避、服务器兼容矩阵、文档与 i18n、性能（大图 >2000 文件）。
 - **后续**：删除/重命名传播、保存触发、三方合并、后台同步、E2E 加密、浏览器版。
 
-## 10. 开放问题（待定项详解）
+## 10. 决策记录（原开放问题）
 
-> 下列问题**不阻塞 M1**（纯核心）。每条包含：背景、可选方案、我的建议。定下来后写回 1.1 决策表。
+> 2026-10-07 已全部关闭，结论已写入 1.1 与相关章节；坚果云实测见 5.2。
 
-### Q1 首次同步时远端已有内容，怎么处理？
+| # | 问题 | 结论 |
+| --- | --- | --- |
+| Q1 | 冲突/首次同步策略 | 做成每设备可配置 `:conflict-policy`：`:prefer-local`（默认）/ `:prefer-remote`；败方版本强制保留在 `logseq/webdav/conflicts`；首次同步同名文件走同一策略（3.3） |
+| Q2 | 重命名 MOVE | MVP 不做，表现同新增；与删除传播一起放后续里程碑（3.4） |
+| Q3 | 移动端凭据 | `@capacitor/preferences`（app 私有沙箱）；安全存储插件为后续增强（6.2） |
+| Q4 | 大文件 | 单文件固定 100MB 上限，超限跳过并提示；可配置阈值为后续增强（5.2、6.1） |
+| Q5 | 坚果云兼容 | 已用真实凭证实测并记录（5.2）；节流 ≥100ms，PUT 后补 etag 需重试 |
+| Q6 | 冲突副本开关 | 强制保留，无关闭开关（3.3） |
+| Q7 | 共存策略 | iCloud 硬禁止、git remote 强警告、第三方目录同步确认 + 启发式（3.6） |
 
-- **背景**：manifest 为空时无法判断两侧同名文件谁更新（可能是两台设备各自创建的同名页面，也可能是同一文件的旧副本）。3.2 会把它们全部判为"冲突"。
-- **方案**：
-  - A. 统一走 3.2：同名 → 冲突副本 + 本地上传；异名 → 各自同步。无新增 UI。
-  - B. 首次同步弹窗让用户选「以本地为准 / 以远端为准 / 合并」。
-  - C. 首次只下载不上传，让用户看过远端后再正常同步。
-- **建议**：A。首次同步冲突本就少，B/C 留作后续增强。
-- **影响**：B/C 会增加 M2 的 UI 与状态机复杂度。
-
-### Q2 重命名要不要在 MVP 就处理？
-
-- **背景**：MVP 不传播删除，重命名页面会导致远端旧文件保留，其他设备可能同时看到新旧两个页面（3.4 已知限制）。
-- **方案**：
-  - A. 维持现状，后续里程碑再做。
-  - B. MVP 就做「本地消失 + 新出现且内容哈希一致 → 远端 MOVE」的识别。
-- **建议**：A。重命名识别与「删除传播 / tombstone」强耦合，分开做容易漏判误判；作为后续里程碑第一个补上的能力。
-- **影响**：影响 M2/M4 排期与 3.4 的用户体验说明。
-
-### Q3 移动端密码存在哪里？
-
-- **背景**：桌面有 Electron `safeStorage`；移动端没有可用的内置加密存储。
-- **方案**：
-  - A. `@capacitor/preferences`（app 私有沙箱、明文，其他 App 读不到）。
-  - B. 引入安全存储插件（iOS Keychain / Android Keystore）。
-  - C. 不保存密码，每次同步时输入（无法自动同步）。
-- **建议**：A，并在文档标注为已知限制；如果对安全要求高，B 作为 M3 的独立任务（新增一个原生依赖）。
-- **影响**：B 增加移动端依赖与发版验证成本。
-
-### Q4 大文件与大量 assets 怎么限制？
-
-- **背景**：Nextcloud 大文件需要分块上传（MVP 不做）；assets 里可能有几百 MB 的视频。
-- **方案**：
-  - A. 固定上限（如单文件 100MB，超限跳过并提示），不提供开关。
-  - B. 设置项「跳过大于 N MB 的文件」。
-  - C. 提供「不同步 assets」总开关。
-- **建议**：A 起步，后续按需加 B。
-- **影响**：影响 5.2 与设置页字段数量。
-
-### Q5 坚果云等服务器的兼容参数需要实测
-
-- **背景**：坚果云 PROPFIND 频率限制严格，etag 行为可能与 Nextcloud 不同；这直接影响 5.3 的退避参数与 5.1 的扫描策略。
-- **待办**：M4 用真实账号实测，确定请求间隔、重试次数、是否引入服务器预设（Nextcloud/坚果云/Synology）。不需要现在决策。
-- **影响**：无，不阻塞开发。
-
-### Q6 冲突副本要不要独立开关？
-
-- **背景**：3.3 目前是强制保留。用户若关闭了 bak 备份，可能也不想再产生冲突文件。
-- **方案**：
-  - A. 固定保留（数据安全优先）。
-  - B. 设置项「冲突时保留远端副本」默认开，关闭需二次确认（有丢数据风险）。
-- **建议**：A。冲突是低频事件，副本是唯一的远端版本兜底。
-- **影响**：B 增加设置项与风险提示文案。
-
-### Q7 3.6 的共存策略强度是否需要调整？
-
-- **背景**：3.6 建议 iCloud 硬禁止、git remote 强警告、其他目录同步靠确认 + 启发式。
-- **需要确认**：
-  - iCloud：硬禁止（不给覆盖入口）还是允许强警告后覆盖？
-  - git remote：强警告后允许共存，还是同样硬禁止？
-- **建议**：iCloud 硬禁止（Apple 的占位文件与系统冲突副本时序不可控，是唯一会主动破坏图数据的情况）；git remote 警告 + 允许，给高级用户留口子。
+后续增强（非 MVP）：首次同步方向选择、重命名 MOVE、大文件阈值可配、安全存储插件、保存后触发、后台同步、E2E 加密、diff-merge。
 
 ---
 
