@@ -91,7 +91,7 @@
     (if (or (string/blank? (:url config))
             (string/blank? (:username config))
             (string/blank? (:password creds)))
-      (p/resolved {:ok false :status nil})
+      (p/resolved {:ok false :status nil :reason :missing-credentials})
       (let [base (engine/base-url config)
             c (client/make-client http-impl {:parse-xml xml/parse
                                              :gap-ms (:request-gap-ms config 100)})]

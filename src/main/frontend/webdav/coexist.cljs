@@ -14,8 +14,8 @@
     (if direct
       direct
       (p/let [dot-git (-> (io/read-abs-text (io/abs-path repo ".git"))
-                          (p/catch (fn [_] nil))
-                          (p/then string/trim))]
+                          (p/catch (fn [_] nil)))
+              dot-git (some-> dot-git string/trim)]
         (when (and (string? dot-git)
                    (string/starts-with? dot-git "gitdir:"))
           (let [dir (string/trim (subs dot-git (count "gitdir:")))

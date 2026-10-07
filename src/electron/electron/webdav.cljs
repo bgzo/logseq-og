@@ -45,9 +45,11 @@
                        :base64 (-> (.buffer res)
                                    (p/then (fn [buf] (.toString buf "base64"))))
                        :text (.text res))]
-      {:status (.-status res)
-       :headers (js->clj (js/Object.fromEntries (.entries (.-headers res))))
-       :body res-body})))
+      ;; Return a JS object: the IPC boundary only bean->js's the promise
+      ;; itself, so the resolved value must already be IPC-friendly.
+      #js {:status (.-status res)
+           :headers (js/Object.fromEntries (.entries (.-headers res)))
+           :body res-body})))
 
 ;; Credentials
 
