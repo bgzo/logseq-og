@@ -1,13 +1,17 @@
 (ns electron.webdav
   "Main-process helpers for WebDAV sync: no-CORS HTTP bridge, encrypted
    credential storage and a per-graph sync lock."
-  (:require ["electron" :refer [safeStorage]]
-            ["fs-extra" :as fs]
+  (:require ["fs-extra" :as fs]
             ["path" :as node-path]
             [clojure.string :as string]
             [electron.logger :as logger]
             [electron.utils :as utils]
             [promesa.core :as p]))
+
+;; `:refer` from the electron module does not pick this one up reliably in the
+;; shadow-cljs electron build, so require it explicitly.
+(defonce ^js safeStorage
+  (.-safeStorage (js/require "electron")))
 
 (def log-error (partial logger/error "[WebDAV]"))
 
@@ -37,7 +41,7 @@
                       :agent @utils/*fetchAgent}
                (some? body*) (assoc :body body*))]
     (p/let [res (utils/_fetch url (clj->js opts))
-            res-body (case (or return-type :text)
+            res-body (case (keyword (or return-type :text))
                        :base64 (-> (.buffer res)
                                    (p/then (fn [buf] (.toString buf "base64"))))
                        :text (.text res))]

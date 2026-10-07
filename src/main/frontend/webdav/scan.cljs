@@ -3,6 +3,7 @@
   (:require [frontend.config :as config]
             [frontend.fs :as fs]
             [frontend.webdav.ignore :as ignore]
+            [frontend.webdav.manifest :as manifest]
             [logseq.common.path :as path]
             [promesa.core :as p]))
 
@@ -43,7 +44,7 @@
             files (->> stats
                        (keep (fn [[rel s]]
                                (when (and s (size-ok? s))
-                                 [rel (select-keys s [:mtime :size :last-modified-at])])))
+                                 [rel (manifest/local-meta s)])))
                        (into {}))
             skipped-large (->> stats
                                (keep (fn [[rel s]]
