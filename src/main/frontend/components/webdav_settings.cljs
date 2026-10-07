@@ -22,6 +22,9 @@
 (defn- save!
   [repo config password {:keys [silent? on-done]}]
   (-> (p/let [creds (webdav-handler/load-credentials repo)
+              _ (when (and (string/blank? password)
+                           (string/blank? (:password creds)))
+                  (throw (ex-info (t :webdav/save-need-password) {})))
               _ (webdav-handler/save-config! repo (dissoc config :password))
               new-password (if (string/blank? password)
                              (:password creds)
@@ -31,7 +34,7 @@
         (when-not silent?
           (notification/show! (t :webdav/save-success) :success false)))
       (p/catch (fn [e]
-                 (notification/show! (str (t :webdav/save-failed) " " e) :error false)))
+                 (notification/show! (str (t :webdav/save-failed) " " (.-message e)) :error false)))
       (p/finally (fn []
                    (when on-done (on-done))))))
 

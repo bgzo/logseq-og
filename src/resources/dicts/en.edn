@@ -708,6 +708,7 @@
  :webdav/blocked-generic          "Sync is blocked by the single-sync-source policy."
  :webdav/save-success             "WebDAV settings saved."
  :webdav/save-failed              "Failed to save WebDAV settings:"
+ :webdav/save-need-password       "Enter the password first: no usable saved credentials found."
  :webdav/test-success             "WebDAV connection OK."
  :webdav/test-failed              "WebDAV connection failed."
  :webdav/test-failed-auth         "Authentication failed; check the username and app password."

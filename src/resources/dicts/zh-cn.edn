@@ -646,6 +646,7 @@
  :webdav/blocked-generic                  "同步被单一同步源策略阻止。"
  :webdav/save-success                     "WebDAV 设置已保存。"
  :webdav/save-failed                      "WebDAV 设置保存失败："
+ :webdav/save-need-password               "请先输入密码：未找到可用的已保存凭据。"
  :webdav/test-success                     "WebDAV 连接正常。"
  :webdav/test-failed                      "WebDAV 连接失败。"
  :webdav/test-failed-auth                 "认证失败，请检查用户名和应用密码。"
