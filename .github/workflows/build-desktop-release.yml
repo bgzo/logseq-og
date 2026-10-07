@@ -613,7 +613,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: nightly
-          name: 'Desktop/Android APP Nightly Release $$'
+          name: 'Nightly Release $$'
           draft: false
           prerelease: true
           body: |
@@ -701,7 +701,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ steps.ref.outputs.version }}
-          name: ${{ github.event.inputs.build-target == 'beta' && format('Desktop/Android APP {0} (Beta Testing)', steps.ref.outputs.version) || format('Desktop/Android APP {0}', steps.ref.outputs.version) }}
+          name: ${{ github.event.inputs.build-target == 'beta' && format('V{0} (Beta Testing)', steps.ref.outputs.version) || format('V{0}', steps.ref.outputs.version) }}
           generate_release_notes: true
           draft: ${{ github.event.inputs.is-draft }}
           # Beta releases are always marked prerelease so they stay out of the
