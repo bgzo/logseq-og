@@ -25,7 +25,7 @@
 | --- | --- |
 | 平台 | 桌面（Electron）+ 移动（iOS/Android Capacitor） |
 | 触发 | 手动 + 打开图 + 定时轮询（保存后触发留到后续） |
-| 冲突 | 保留双方副本：远端版本落盘到 `logseq/bak`，本地版本继续作为正文并上传 |
+| 冲突 | 保留双方副本：远端版本落盘到 `logseq/webdav/conflicts`，本地版本继续作为正文并上传 |
 | 删除 | MVP 不传播删除（两侧删除都记入 manifest 墓碑，避免文件复活） |
 | 认证 | HTTP Basic over HTTPS |
 | 同步粒度 | 文件级（graph 目录 ↔ WebDAV 远端目录），不改 DB 层同步 |
@@ -100,8 +100,10 @@ manifest v1（EDN）：
 
 ### 3.3 冲突处理（MVP）
 
-1. 下载远端版本内容，保存到图的 `logseq/bak/webdav-conflicts/<yyyyMMdd-HHmmss>/<相对路径>`。
-   - 该目录被现有 watcher 与 `frontend.util.fs/ignored-path?` 排除，不会进入 DB，也不会再次同步。
+1. 下载远端版本内容，保存到图的 `logseq/webdav/conflicts/<yyyyMMdd-HHmmss>/<相对路径>`。
+   - 该目录接入忽略清单（见 4.6），不会进入 DB，也不会再次同步。
+   - **不写入 `logseq/bak`**：与「关闭文件备份」（#11 的 `:feature/enable-backup?`）不冲突。冲突副本只在冲突时产生，语义上是"同步救援"，不是常规变更备份。
+   - 冲突副本始终保留，即使关闭了 bak 备份（数据安全优先）；后续如需彻底关闭可加同步级开关。
 2. 保持本地文件内容不变，并上传本地版本覆盖远端。
 3. 更新 manifest（上传后的远端元数据）。
 4. 通知用户冲突路径，提示备份位置。
@@ -122,9 +124,9 @@ manifest v1（EDN）：
 - `logseq/graphs-txid.edn`（历史遗留）；
 - `node_modules`；
 - 临时/中间文件：`*.tmp`、`*.part`、`*.crdownload`、`Thumbs.db`、`desktop.ini`；
-- 冲突备份目录 `logseq/bak/webdav-conflicts`（被 `logseq/bak` 覆盖）。
+- 同步冲突副本目录 `logseq/webdav`。
 
-> `logseq/config.edn` 属于图内容，**正常同步**。WebDAV 自身配置与凭据不写入图内。
+> `logseq/config.edn` 属于图内容，**正常同步**。WebDAV 自身配置与凭据不写入图内（见第 6 节）。
 
 ---
 
@@ -194,12 +196,29 @@ src/electron/electron/webdav.cljs       ; IPC：fetch / safeStorage / 多窗口�
 - 下载写盘走 `frontend.fs`（不经 `alter-file`），由 chokidar / 移动原生 watcher 触发 `handle-changed!` 增量入库；watcher 已有"内容与 DB 相同则跳过"比较，重复写入是 no-op。
 - 同步引擎只由 4.3 的触发驱动，不监听文件变更事件，从根上避免"同步→写入→再同步"的回环。
 - 同步过程中对同一路径加互斥，watcher 与同步同时写同一文件时以同步任务完成为准，随后比较内容兜底。
-- 冲突备份写入 `logseq/bak`（watcher 已忽略）。
+- 冲突副本写入 `logseq/webdav`（已接入忽略清单，见 4.6）。
 
 ### 4.5 多窗口与多设备
 
 - 桌面多窗口：Electron 主进程按 graph 目录维护同步租约，只有一个窗口执行同步；租约在窗口关闭/切换图时释放，其他窗口看到"另一窗口正在同步"。
 - 多设备：manifest 每设备独立（存放于本机），不做跨设备共享；冲突策略保证不丢数据。
+
+### 4.6 忽略规则接入点（logseq/webdav）
+
+图内新增 `logseq/webdav` 目录后，必须确保它不被当作页面解析、不触发 watcher、不进入任何扫描/同步：
+
+| 位置 | 用途 |
+| --- | --- |
+| `deps/common/src/logseq/common/graph.cljs` 的 `ignored-path?` | 桌面 watcher（chokidar）与图文件枚举；同步更新 docstring |
+| `deps/common/test/logseq/common/graph_test.cljs` | 补充 `logseq/webdav` 忽略用例 |
+| `src/main/frontend/util/fs.cljs` 的 `ignored-path?` | renderer 侧全量加载 / 手动刷新 / 初始 watcher |
+| `src/main/frontend/fs/capacitor_fs.cljs` 的目录过滤（`get-file-paths` / `get-files`） | 移动端递归枚举 |
+| `android/app/src/main/java/com/logseq/og/FsWatcher.java` 的目录名过滤 | Android 原生 watcher |
+| `ios/App/App/FsWatcher.swift` 的 `/logseq/bak/`、`/logseq/version-files/` 同处过滤 | iOS 原生 watcher |
+| 同步引擎本地扫描排除（`webdav/scan.cljs`） | 本地扫描与远端上传 |
+| 发布/导出流程 | 回归确认 `logseq/webdav` 不进入 publish 产物 |
+
+> manifest、配置与凭据仍存放在图外（见第 6 节）：它们是每设备状态，随图/ git 传播会导致跨设备语义错乱。冲突副本放图内，是因为它是用户数据，需要可发现、可随图快照保留。
 
 ---
 
@@ -270,6 +289,7 @@ src/electron/electron/webdav.cljs       ; IPC：fetch / safeStorage / 多窗口�
 - 桌面：`~/.logseq-og/webdav/<graph-key>/manifest.edn`
 - 移动：`Directory.Data/webdav/<graph-key>/manifest.edn`
 - 每次同步轮次结束后原子写入（temp + rename）。
+- manifest 不进图：它是每设备状态，随图或 git 传播会导致跨设备 mtime/etag 语义错乱。冲突救援副本则放在图内 `logseq/webdav/conflicts`（见 3.3、4.6）。
 
 ---
 
@@ -293,9 +313,11 @@ src/electron/electron/webdav.cljs       ; IPC：fetch / safeStorage / 多窗口�
 - 单测（`src/test/frontend/webdav/`，`yarn test` 可跑）：
   - `plan_test`：3.2 状态表的全部分支（表驱动）；
   - `client_test`：PROPFIND multistatus 解析（Nextcloud / 坚果云 / 无命名空间三类 fixture）、href 解码、URL 编码；
-  - `manifest_test`：编解码、损坏恢复、墓碑转换。
+  - `manifest_test`：编解码、损坏恢复、墓碑转换；
+  - 忽略规则：`deps/common` 的 `ignored-path?` 补充 `logseq/webdav` 用例。
 - 集成（Node 环境，stub HTTP adapter + `frontend.fs.memory-fs` 或临时目录）：
   - 首次同步（双向新增）、双方修改冲突、单侧删除墓碑、排除规则。
+- 移动端回归：确认 `logseq/webdav` 下文件不触发原生 watcher、不进入 DB。
 - 真实服务器手工矩阵（发版前）：Nextcloud、坚果云、Synology、rclone serve。
 - CI：后续加 `rclone serve webdav` 的集成任务；E2E 更晚。
 
@@ -317,6 +339,8 @@ src/electron/electron/webdav.cljs       ; IPC：fetch / safeStorage / 多窗口�
 3. 移动端凭据存储：Preferences 是否可接受，还是一开始就引入安全存储插件？
 4. 大文件/大量 assets 是否需要单独开关或排除选项。
 5. 坚果云 etag 语义与频率限制需要实测后补充参数。
+6. 图为 git 仓库时，启用同步是否自动向 `.gitignore` 追加 `logseq/webdav/`，还是仅在 UI 提示用户手动添加？
+7. 是否需要「保留冲突副本」的独立开关（默认开）：关闭时冲突只通知、不留副本，会有丢数据风险。
 
 ---
 
