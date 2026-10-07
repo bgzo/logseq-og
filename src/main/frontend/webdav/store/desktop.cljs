@@ -86,10 +86,16 @@
       (write-edn-atomic! dir "manifest.edn" m)))
 
   (load-credentials [_ repo]
-    (ipc/ipc :webdavCredentials {:op :load :graph-key (key-of repo)}))
+    (-> (ipc/ipc :webdavCredentials {:op :load :graph-key (key-of repo)})
+        (p/then (fn [res]
+                  (when-not (:error res) res)))))
 
   (save-credentials [_ repo creds]
-    (ipc/ipc :webdavCredentials (merge {:op :save :graph-key (key-of repo)} creds))))
+    (-> (ipc/ipc :webdavCredentials (merge {:op :save :graph-key (key-of repo)} creds))
+        (p/then (fn [res]
+                  (if (:error res)
+                    (throw (ex-info (str "Failed to store credentials: " (:error res)) {}))
+                    res))))))
 
 (defn make []
   (->DesktopStore))

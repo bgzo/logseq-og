@@ -590,15 +590,22 @@
     (.toString (fs-extra/readFileSync path) "base64")))
 
 (defmethod handle :webdavFetch [_window [_ opts]]
-  (webdav/fetch! opts))
+  (-> (webdav/fetch! opts)
+      (p/catch (fn [e] {:error (str e)}))))
 
 (defmethod handle :webdavCredentials [_window [_ {:keys [op graph-key username password]}]]
-  (case (keyword op)
-    :load (webdav/load-credentials! graph-key)
-    :save (webdav/save-credentials! graph-key {:username username :password password})
-    :clear (webdav/clear-credentials! graph-key)
-    :encryption-available (webdav/encryption-available)
-    nil))
+  ;; Never throw: the IPC error logger would print the payload (password),
+  ;; so surface failures as {:error ..} for the renderer.
+  (try
+    (case (keyword op)
+      :load (webdav/load-credentials! graph-key)
+      :save (webdav/save-credentials! graph-key {:username username :password password})
+      :clear (webdav/clear-credentials! graph-key)
+      :encryption-available (webdav/encryption-available)
+      nil)
+    (catch :default e
+      (logger/error ::webdav-credentials e)
+      {:error (str e)})))
 
 (defmethod handle :webdavSyncLock [^js window [_ {:keys [op graph-dir]}]]
   (when window

@@ -66,7 +66,7 @@
         (let [payload (js/JSON.parse (.toString (fs/readFileSync file)))
               data (js/Buffer.from (.-data payload) "base64")
               json (if (.-encrypted payload)
-                     (safeStorage.decryptString data)
+                     (.decryptString safeStorage data)
                      (.toString data "utf8"))]
           (js->clj (js/JSON.parse json) :keywordize-keys true))))
     (catch :default e
@@ -80,7 +80,7 @@
                                      :password (or password "")})
         encrypted? (encryption-available?)
         data (if encrypted?
-               (.toString (safeStorage.encryptString plain) "base64")
+               (.toString (.encryptString safeStorage plain) "base64")
                (.toString (js/Buffer.from plain "utf8") "base64"))]
     (fs/writeFileSync file (js/JSON.stringify #js {:encrypted encrypted?
                                                    :data data}))
