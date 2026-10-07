@@ -29,6 +29,7 @@
 | 删除 | MVP 不传播删除（两侧删除都记入 manifest 墓碑，避免文件复活） |
 | 认证 | HTTP Basic over HTTPS |
 | 同步粒度 | 文件级（graph 目录 ↔ WebDAV 远端目录），不改 DB 层同步 |
+| git 仓库 | 开启同步时仅**提示**用户向 `.gitignore` 添加 `logseq/webdav/`，不自动修改 `.gitignore` |
 
 ---
 
@@ -301,6 +302,7 @@ src/electron/electron/webdav.cljs       ; IPC：fetch / safeStorage / 多窗口�
   - 「立即同步」；
   - 状态行：上次同步时间、结果（成功/失败原因）、进行中进度。
 - 图下拉菜单增加「立即同步」入口（`src/main/frontend/components/repo.cljs`）。
+- git 仓库提示：若当前图存在 `.gitignore`（或 `.git` 目录），在同步设置中展示一条可复制的建议——向 `.gitignore` 添加 `logseq/webdav/`；**不自动修改用户文件**。
 - 通知：
   - 冲突：提示备份路径；
   - 错误：认证失败、超限、单文件失败汇总。
@@ -339,8 +341,7 @@ src/electron/electron/webdav.cljs       ; IPC：fetch / safeStorage / 多窗口�
 3. 移动端凭据存储：Preferences 是否可接受，还是一开始就引入安全存储插件？
 4. 大文件/大量 assets 是否需要单独开关或排除选项。
 5. 坚果云 etag 语义与频率限制需要实测后补充参数。
-6. 图为 git 仓库时，启用同步是否自动向 `.gitignore` 追加 `logseq/webdav/`，还是仅在 UI 提示用户手动添加？
-7. 是否需要「保留冲突副本」的独立开关（默认开）：关闭时冲突只通知、不留副本，会有丢数据风险。
+6. 是否需要「保留冲突副本」的独立开关（默认开）：关闭时冲突只通知、不留副本，会有丢数据风险。
 
 ---
 
