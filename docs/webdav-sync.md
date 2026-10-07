@@ -125,9 +125,27 @@ manifest v1（EDN）：
 - `logseq/graphs-txid.edn`（历史遗留）；
 - `node_modules`；
 - 临时/中间文件：`*.tmp`、`*.part`、`*.crdownload`、`Thumbs.db`、`desktop.ini`；
+- iCloud 占位文件 `*.icloud`（不上传；扫描到即按 3.6 暂停并告警）；
 - 同步冲突副本目录 `logseq/webdav`。
 
 > `logseq/config.edn` 属于图内容，**正常同步**。WebDAV 自身配置与凭据不写入图内（见第 6 节）。
+
+### 3.6 与其他同步方式共存（单一同步源原则）
+
+**原则：同一个图在同一时间只应有 1 个目录级同步源。** WebDAV 与 git、iCloud、Syncthing 等叠加会造成双份冲突处理、文件写入竞争与"幽灵副本"，必须在启用阶段就显式约束。
+
+| 其他同步方式 | 检测方式 | 策略（建议） |
+| --- | --- | --- |
+| iCloud 容器（iOS/iPadOS；macOS iCloud Drive 目录） | 移动端：图路径命中 iCloud 容器根（`state/get-icloud-container-root-url`）；桌面：路径位于 `~/Library/Mobile Documents/` 下 | **默认禁止启用 WebDAV**，UI 说明原因并引导二选一（把图移出 iCloud 容器，或继续用 iCloud）。原因：iCloud 会把文件淘汰成 `.icloud` 占位符、生成系统级冲突副本，与 WebDAV 扫描/写入叠加会产生大量假新增/假修改 |
+| git 仓库（图根存在 `.git`） | 图根 `.git` 存在性（参考 `src/electron/electron/git.cljs` 的 `git-dir-exists?`）；进一步检查是否配置了 remote | 分两种：**仅本地自动提交**（无 remote）→ 允许，提示向 `.gitignore` 添加 `logseq/webdav/`；**配置了 remote**（真实 git 推送/拉取）→ 强警告 + 显式确认，建议二选一。git 与 WebDAV 并存时，同步下载会被自动提交（历史噪声），冲突也会被两套机制各处理一次 |
+| 其他目录同步（Syncthing/Dropbox/OneDrive/Google Drive/rclone 挂载/Android 其他 App） | 无法可靠检测 | 启用时二次确认「我确认此图未使用其他目录同步工具」；运行时启发式：发现 `.icloud` 占位文件、`*.sync-conflict-*`、`* (conflicted copy*)` 等已知冲突产物时，暂停本轮同步并提示 |
+
+实现注意：
+
+- 策略判断做成纯函数（输入：平台、图路径、`.git`/remote 检测结果、iCloud 根），便于单测。
+- 检测结果进入同步设置状态（持续展示阻止/警告原因），不能只弹一次。
+- **移动端 iCloud 检测存在 fork 遗留问题**：`src/main/frontend/mobile/util.cljs` 的 `in-iCloud-container-path?` 仍在匹配上游容器名 `iCloud~com~logseq~logseq`，而本 fork 的 iCloud 容器是 `iCloud.com.logseq.og`（`ios/App/App/App.entitlements`），按现有代码检测会漏判。M3 需修正（按实际容器路径匹配，例如 `iCloud~com~logseq~og`，以真机路径为准）并补测试。
+- 图选择器的「iCloud sync」模式与 WebDAV 的互斥提示在 M3 联动（`src/main/frontend/mobile/graph_picker.cljs`）。
 
 ---
 
@@ -191,6 +209,7 @@ src/electron/electron/webdav.cljs       ; IPC：fetch / safeStorage / 多窗口�
 
 - 单飞：同一时刻每个图只允许一个同步任务；进行中忽略新触发。
 - 离线（`navigator.onLine === false`）直接跳过，不报错刷屏。
+- 共存策略（3.6）判定为禁止时，自动触发全部跳过；手动触发只展示原因与引导。
 
 ### 4.4 防回环
 
@@ -320,6 +339,7 @@ src/electron/electron/webdav.cljs       ; IPC：fetch / safeStorage / 多窗口�
 - 集成（Node 环境，stub HTTP adapter + `frontend.fs.memory-fs` 或临时目录）：
   - 首次同步（双向新增）、双方修改冲突、单侧删除墓碑、排除规则。
 - 移动端回归：确认 `logseq/webdav` 下文件不触发原生 watcher、不进入 DB。
+- 共存策略：3.6 判定纯函数单测（iCloud 路径 / `.git` / remote / 平台组合）；移动端修正后的 iCloud 容器检测用例。
 - 真实服务器手工矩阵（发版前）：Nextcloud、坚果云、Synology、rclone serve。
 - CI：后续加 `rclone serve webdav` 的集成任务；E2E 更晚。
 
@@ -329,19 +349,76 @@ src/electron/electron/webdav.cljs       ; IPC：fetch / safeStorage / 多窗口�
 
 - **M0 规范**：本文档评审通过（本 PR）。
 - **M1 纯核心**：`plan` / `client` / `manifest` + 单测；不接真实 IO。
-- **M2 桌面打通**：HTTP/FS/store 适配、engine、手动 + 打开图 + 定时、设置 UI。
-- **M3 移动打通**：CapacitorHttp、移动 store、移动 UI；验证写入经原生 watcher 入库。
+- **M2 桌面打通**：HTTP/FS/store 适配、engine、手动 + 打开图 + 定时、设置 UI、共存检测（git / iCloud Drive 路径）与提示。
+- **M3 移动打通**：CapacitorHttp、移动 store、移动 UI、修正 iCloud 容器检测并接入互斥提示；验证写入经原生 watcher 入库。
 - **M4 稳定化**：错误/限流/退避、服务器兼容矩阵、文档与 i18n、性能（大图 >2000 文件）。
 - **后续**：删除/重命名传播、保存触发、三方合并、后台同步、E2E 加密、浏览器版。
 
-## 10. 开放问题
+## 10. 开放问题（待定项详解）
 
-1. 首次同步且远端非空时的策略：MVP 按 3.2 执行（同名冲突、异名各同步）；是否需要在 UI 提供「仅下载/仅上传」首次方向选择？
-2. 重命名是否提前到 M2 之后：按内容哈希识别并 MOVE（可显著改善页面重命名体验）。
-3. 移动端凭据存储：Preferences 是否可接受，还是一开始就引入安全存储插件？
-4. 大文件/大量 assets 是否需要单独开关或排除选项。
-5. 坚果云 etag 语义与频率限制需要实测后补充参数。
-6. 是否需要「保留冲突副本」的独立开关（默认开）：关闭时冲突只通知、不留副本，会有丢数据风险。
+> 下列问题**不阻塞 M1**（纯核心）。每条包含：背景、可选方案、我的建议。定下来后写回 1.1 决策表。
+
+### Q1 首次同步时远端已有内容，怎么处理？
+
+- **背景**：manifest 为空时无法判断两侧同名文件谁更新（可能是两台设备各自创建的同名页面，也可能是同一文件的旧副本）。3.2 会把它们全部判为"冲突"。
+- **方案**：
+  - A. 统一走 3.2：同名 → 冲突副本 + 本地上传；异名 → 各自同步。无新增 UI。
+  - B. 首次同步弹窗让用户选「以本地为准 / 以远端为准 / 合并」。
+  - C. 首次只下载不上传，让用户看过远端后再正常同步。
+- **建议**：A。首次同步冲突本就少，B/C 留作后续增强。
+- **影响**：B/C 会增加 M2 的 UI 与状态机复杂度。
+
+### Q2 重命名要不要在 MVP 就处理？
+
+- **背景**：MVP 不传播删除，重命名页面会导致远端旧文件保留，其他设备可能同时看到新旧两个页面（3.4 已知限制）。
+- **方案**：
+  - A. 维持现状，后续里程碑再做。
+  - B. MVP 就做「本地消失 + 新出现且内容哈希一致 → 远端 MOVE」的识别。
+- **建议**：A。重命名识别与「删除传播 / tombstone」强耦合，分开做容易漏判误判；作为后续里程碑第一个补上的能力。
+- **影响**：影响 M2/M4 排期与 3.4 的用户体验说明。
+
+### Q3 移动端密码存在哪里？
+
+- **背景**：桌面有 Electron `safeStorage`；移动端没有可用的内置加密存储。
+- **方案**：
+  - A. `@capacitor/preferences`（app 私有沙箱、明文，其他 App 读不到）。
+  - B. 引入安全存储插件（iOS Keychain / Android Keystore）。
+  - C. 不保存密码，每次同步时输入（无法自动同步）。
+- **建议**：A，并在文档标注为已知限制；如果对安全要求高，B 作为 M3 的独立任务（新增一个原生依赖）。
+- **影响**：B 增加移动端依赖与发版验证成本。
+
+### Q4 大文件与大量 assets 怎么限制？
+
+- **背景**：Nextcloud 大文件需要分块上传（MVP 不做）；assets 里可能有几百 MB 的视频。
+- **方案**：
+  - A. 固定上限（如单文件 100MB，超限跳过并提示），不提供开关。
+  - B. 设置项「跳过大于 N MB 的文件」。
+  - C. 提供「不同步 assets」总开关。
+- **建议**：A 起步，后续按需加 B。
+- **影响**：影响 5.2 与设置页字段数量。
+
+### Q5 坚果云等服务器的兼容参数需要实测
+
+- **背景**：坚果云 PROPFIND 频率限制严格，etag 行为可能与 Nextcloud 不同；这直接影响 5.3 的退避参数与 5.1 的扫描策略。
+- **待办**：M4 用真实账号实测，确定请求间隔、重试次数、是否引入服务器预设（Nextcloud/坚果云/Synology）。不需要现在决策。
+- **影响**：无，不阻塞开发。
+
+### Q6 冲突副本要不要独立开关？
+
+- **背景**：3.3 目前是强制保留。用户若关闭了 bak 备份，可能也不想再产生冲突文件。
+- **方案**：
+  - A. 固定保留（数据安全优先）。
+  - B. 设置项「冲突时保留远端副本」默认开，关闭需二次确认（有丢数据风险）。
+- **建议**：A。冲突是低频事件，副本是唯一的远端版本兜底。
+- **影响**：B 增加设置项与风险提示文案。
+
+### Q7 3.6 的共存策略强度是否需要调整？
+
+- **背景**：3.6 建议 iCloud 硬禁止、git remote 强警告、其他目录同步靠确认 + 启发式。
+- **需要确认**：
+  - iCloud：硬禁止（不给覆盖入口）还是允许强警告后覆盖？
+  - git remote：强警告后允许共存，还是同样硬禁止？
+- **建议**：iCloud 硬禁止（Apple 的占位文件与系统冲突副本时序不可控，是唯一会主动破坏图数据的情况）；git remote 警告 + 允许，给高级用户留口子。
 
 ---
 
