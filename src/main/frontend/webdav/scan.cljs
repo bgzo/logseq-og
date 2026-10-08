@@ -15,11 +15,12 @@
 
 (defn- stat-batches
   [repo-dir rels batch-size]
-  (->> rels
-       (partition-all batch-size)
-       (map (fn [chunk] (p/all (map #(stat-one repo-dir %) chunk))))
-       (p/all)
-       (p/then (fn [chunks] (vec (apply concat chunks))))))
+  (let [batches (map (fn [chunk]
+                       (p/all (map #(stat-one repo-dir %) chunk)))
+                     (partition-all batch-size rels))]
+    (p/then (p/all batches)
+            (fn [chunks]
+              (vec (apply concat chunks))))))
 
 (defn list-local
   "Scan the local graph directory.

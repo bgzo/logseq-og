@@ -291,7 +291,9 @@
           _ (js/setTimeout #(mobile/mobile-postinit) 1000)
           ;; FIXME: an ugly implementation for redirecting to page on new window is restored
           _ (repo-handler/graph-ready! repo)
-          _ (fs-watcher/load-graph-files! repo loaded-homepage-files)]))
+          _ (fs-watcher/load-graph-files! repo loaded-homepage-files)]
+    (when repo
+      (webdav-handler/on-graph-ready! repo))))
 
 (defmethod handle :notification/show [[_ {:keys [content status clear?]}]]
   (notification/show! content status clear?))

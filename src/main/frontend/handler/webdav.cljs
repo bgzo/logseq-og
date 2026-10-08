@@ -81,6 +81,7 @@
                    result))
          (p/catch (fn [e]
                     ;; the engine recorded the failure status already
+                    (js/console.error "WebDAV sync failed:" (or (.-stack e) (str e)))
                     (p/resolved {:error (str e) :data (ex-data e)})))))))
 
 (defn test-connection!
@@ -133,16 +134,22 @@
                        (p/catch (fn [_]))))))
              scheduler-interval-ms))))
 
+(defonce *last-trigger (atom {}))
+
 (defn on-graph-ready!
-  "Called after a graph finished loading: schedule a pull shortly after."
+  "Called after a graph finished loading: schedule a pull shortly after.
+   Deduplicated because both :graph/added and :graph/ready can fire."
   [repo]
-  (when (and (util/electron?) (not util/node-test?))
-    (start-scheduler!)
-    (js/setTimeout
-     (fn []
-       (-> (get-config repo)
-           (p/then (fn [config]
-                     (when (:enabled config)
-                       (sync-now! repo {:silent? true}))))
-           (p/catch (fn [_]))))
-     3000)))
+  (when (and (util/electron?) (not util/node-test?) repo)
+    (let [now (.now js/Date)]
+      (when (> (- now (get @*last-trigger repo 0)) 10000)
+        (swap! *last-trigger assoc repo now)
+        (start-scheduler!)
+        (js/setTimeout
+         (fn []
+           (-> (get-config repo)
+               (p/then (fn [config]
+                         (when (:enabled config)
+                           (sync-now! repo {:silent? true}))))
+               (p/catch (fn [_]))))
+         3000)))))
