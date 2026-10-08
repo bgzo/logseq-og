@@ -58,6 +58,8 @@
    (str (collection-response "/dav/user/graph/pages/sub/"))))
 
 (deftest url-helpers
+  (testing "basic auth header"
+    (is (= "Basic YnVzZXI6cGFzcw==" (client/basic-auth-header "buser" "pass"))))
   (testing "child-url percent-encodes each segment"
     (is (= (str base "/%E4%B8%AD%E6%96%87%20%E6%B5%8B%E8%AF%95.md")
            (client/child-url base "中文 测试.md")))

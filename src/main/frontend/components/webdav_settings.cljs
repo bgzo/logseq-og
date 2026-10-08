@@ -71,7 +71,7 @@
      (when-let [at (:at status)]
        [:span.opacity-50 (str " (" at ")")])]))
 
-(rum/defc settings-content
+(rum/defc ^:large-vars/cleanup-todo settings-content
   [repo]
   (let [[config set-config!] (rum/use-state nil)
         [password set-password!] (rum/use-state "")

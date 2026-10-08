@@ -183,7 +183,9 @@
               (p/let [manifest* (store/load-manifest store repo)
                       base (base-url config)
                       client (client/make-client http {:parse-xml parse-xml
-                                                       :gap-ms (:request-gap-ms config 100)})
+                                                       :gap-ms (:request-gap-ms config 100)
+                                                       :username (:username config)
+                                                       :password (:password creds)})
                       _ (status! deps repo {:phase :scanning})
                       local (scan/list-local repo {:max-file-mb (:max-file-mb config)})
                       _ (when (seq (:external-artifacts local))

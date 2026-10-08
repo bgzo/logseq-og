@@ -32,11 +32,6 @@
   [repo rel]
   (fs/stat (graph-dir repo) rel))
 
-(defn path-exists?
-  [repo rel]
-  (-> (p/catch (p/let [_ (fs/stat (graph-dir repo) rel)] true)
-               (fn [_] false))))
-
 (defn ensure-local-parents!
   [repo rel]
   (let [parent (path/parent (abs-path repo rel))]

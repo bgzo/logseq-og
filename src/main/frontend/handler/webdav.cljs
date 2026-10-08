@@ -94,7 +94,9 @@
       (p/resolved {:ok false :status nil :reason :missing-credentials})
       (let [base (engine/base-url config)
             c (client/make-client http-impl {:parse-xml xml/parse
-                                             :gap-ms (:request-gap-ms config 100)})]
+                                             :gap-ms (:request-gap-ms config 100)
+                                             :username (:username config)
+                                             :password (:password creds)})]
         (-> (client/test-connection! c base)
             (p/catch (fn [e]
                        {:ok false

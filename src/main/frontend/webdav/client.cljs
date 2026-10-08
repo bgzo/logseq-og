@@ -7,19 +7,31 @@
             [frontend.webdav.http :as http]
             [frontend.webdav.ignore :as ignore]
             [frontend.webdav.xml :as xml]
+            [goog.crypt :as crypt]
+            [goog.crypt.base64 :as base64]
             [promesa.core :as p]))
 
 (def propfind-body
   "<?xml version=\"1.0\" encoding=\"utf-8\"?><d:propfind xmlns:d=\"DAV:\"><d:prop><d:resourcetype/><d:getetag/><d:getlastmodified/><d:getcontentlength/></d:prop></d:propfind>")
 
+(defn basic-auth-header
+  [username password]
+  (str "Basic "
+       (base64/encodeByteArray
+        (crypt/stringToUtf8ByteArray (str username ":" password)))))
+
 (defn make-client
   "http: an Http implementation
-   opts: {:parse-xml fn, :gap-ms ms between requests, :log fn}"
-  [http-impl {:keys [parse-xml gap-ms log] :or {gap-ms 100}}]
+   opts: {:parse-xml fn, :gap-ms ms between requests, :log fn,
+          :username string, :password string}"
+  [http-impl {:keys [parse-xml gap-ms log username password] :or {gap-ms 100}}]
   {:http http-impl
    :parse-xml (or parse-xml xml/parse)
    :gap-ms gap-ms
    :log log
+   :auth-header (when (and (not (string/blank? username))
+                           (not (string/blank? password)))
+                  (basic-auth-header username password))
    :state (atom {:last-request 0})})
 
 (defn- throttle!
@@ -36,7 +48,12 @@
   (-> (throttle! client)
       (p/then (fn [_]
                 (swap! (:state client) assoc :last-request (js/Date.now))
-                (http/request (:http client) opts)))))
+                (http/request (:http client)
+                              (cond-> opts
+                                (:auth-header client)
+                                (update :headers #(assoc (or % {})
+                                                         "Authorization"
+                                                         (:auth-header client)))))))))
 
 (defn encode-path-segment
   [segment]
