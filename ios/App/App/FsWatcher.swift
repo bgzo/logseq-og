@@ -91,6 +91,9 @@ extension URL {
         if self.absoluteString.contains("/logseq/bak/") || self.absoluteString.contains("/logseq/version-files/") {
             return true
         }
+        if self.absoluteString.contains("/logseq/webdav/") {
+            return true
+        }
         if self.lastPathComponent == "graphs-txid.edn" || self.lastPathComponent == "broken-config.edn" {
             return true
         }
@@ -218,7 +221,7 @@ public class PollingWatcher {
 
                 if isDirectory {
                     // NOTE: URL.path won't end with a `/`
-                    if fileURL.path.hasSuffix("/logseq/bak") || fileURL.path.hasSuffix("/logseq/version-files") || name == ".recycle" || name.hasPrefix(".") || name == "node_modules" {
+                    if fileURL.path.hasSuffix("/logseq/bak") || fileURL.path.hasSuffix("/logseq/version-files") || fileURL.path.hasSuffix("/logseq/webdav") || fileURL.path.contains("/logseq/webdav/") || name == ".recycle" || name.hasPrefix(".") || name == "node_modules" {
                         enumerator.skipDescendants()
                     }
                 }

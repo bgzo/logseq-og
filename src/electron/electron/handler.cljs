@@ -25,6 +25,7 @@
             [electron.shell :as shell]
             [electron.state :as state]
             [electron.utils :as utils]
+            [electron.webdav :as webdav]
             [electron.window :as win]
             [goog.functions :refer [debounce]]
             [logseq.common.graph :as common-graph]
@@ -581,6 +582,41 @@
 (defmethod handle :httpRequestAbort [_ [_ req-id]]
   (when-let [^js controller (get @*request-abort-signals req-id)]
     (.abort controller)))
+
+;; WebDAV sync
+
+(defmethod handle :readFileBase64 [_window [_ path]]
+  (when (fs-extra/pathExistsSync path)
+    (.toString (fs-extra/readFileSync path) "base64")))
+
+(defmethod handle :webdavFetch [_window [_ opts]]
+  (-> (webdav/fetch! opts)
+      (p/catch (fn [e]
+                 ;; log url + error only: headers/body may carry credentials
+                 (logger/error ::webdav-fetch (:url opts) e)
+                 #js {:error (str e)}))))
+
+(defmethod handle :webdavCredentials [_window [_ {:keys [op graph-key username password]}]]
+  ;; Never throw: the IPC error logger would print the payload (password),
+  ;; so surface failures as {:error ..} for the renderer.
+  (try
+    (case (keyword op)
+      :load (webdav/load-credentials! graph-key)
+      :save (webdav/save-credentials! graph-key {:username username :password password})
+      :clear (webdav/clear-credentials! graph-key)
+      :encryption-available (webdav/encryption-available)
+      nil)
+    (catch :default e
+      (logger/error ::webdav-credentials e)
+      {:error (str e)})))
+
+(defmethod handle :webdavSyncLock [^js window [_ {:keys [op graph-dir]}]]
+  (when window
+    (case (keyword op)
+      :acquire (webdav/acquire-lock! window graph-dir)
+      :refresh (webdav/refresh-lock! window graph-dir)
+      :release (webdav/release-lock! window graph-dir)
+      false)))
 
 (defmethod handle :quitAndInstall []
   (logger/info ::quick-and-install)
