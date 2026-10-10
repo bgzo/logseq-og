@@ -12,17 +12,6 @@
             [logseq.common.path :as path]
             [promesa.core :as p]))
 
-(def default-config
-  {:enabled false
-   :url ""
-   :remote-root ""
-   :username ""
-   :conflict-policy :prefer-local
-   :interval 300
-   :request-gap-ms 100
-   :max-file-mb 100
-   :allow-git-remote? false})
-
 (defonce *dot-root (atom nil))
 
 (defn- dot-root!
@@ -70,7 +59,7 @@
   (load-config [_ repo]
     (p/let [dir (dir-of repo)
             saved (read-edn dir "config.edn")]
-      (merge default-config (or saved {}))))
+      (merge store/default-config (or saved {}))))
 
   (save-config [_ repo config]
     (p/let [dir (dir-of repo)]

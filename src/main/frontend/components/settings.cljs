@@ -929,7 +929,7 @@
                (when (util/electron?)
                  [:version-control "git" (t :settings-page/tab-version-control) (ui/icon "history")])
 
-               (when (util/electron?)
+               (when (or (util/electron?) (mobile-util/native-platform?))
                  [:sync "sync" (t :settings-page/tab-sync) (ui/icon "cloud")])
 
                ;; (when (util/electron?)

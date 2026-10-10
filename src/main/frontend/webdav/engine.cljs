@@ -2,6 +2,7 @@
   "WebDAV sync engine: scan → plan → apply, one round per graph."
   (:require [clojure.string :as string]
             [electron.ipc :as ipc]
+            [frontend.util :as util]
             [frontend.webdav.client :as client]
             [frontend.webdav.coexist :as coexist]
             [frontend.webdav.ignore :as ignore]
@@ -151,14 +152,17 @@
 
 (defn- with-lock
   [repo deps f]
-  (p/let [graph-dir (io/graph-dir repo)
-          acquired (ipc/ipc :webdavSyncLock {:op :acquire :graph-dir graph-dir})]
-    (if acquired
-      (-> (f)
-          (p/finally (fn []
-                       (ipc/ipc :webdavSyncLock {:op :release :graph-dir graph-dir}))))
-      (do (status! deps repo {:phase :locked})
-          (p/resolved :locked)))))
+  (if-not (util/electron?)
+    ;; Mobile is single-window, no cross-window lease needed
+    (f)
+    (p/let [graph-dir (io/graph-dir repo)
+            acquired (ipc/ipc :webdavSyncLock {:op :acquire :graph-dir graph-dir})]
+      (if acquired
+        (-> (f)
+            (p/finally (fn []
+                         (ipc/ipc :webdavSyncLock {:op :release :graph-dir graph-dir}))))
+        (do (status! deps repo {:phase :locked})
+            (p/resolved :locked))))))
 
 (defn- sync-inner!
   [repo {:keys [store http parse-xml] :as deps}]

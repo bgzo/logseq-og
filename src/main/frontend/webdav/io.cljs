@@ -1,12 +1,20 @@
 (ns frontend.webdav.io
-  "Graph file IO for the sync engine. Desktop implementation (Electron IPC);
-   the mobile adapter lands in M3."
-  (:require [electron.ipc :as ipc]
+  "Graph file IO for the sync engine. Desktop uses Electron IPC (atomic
+   temp+rename); mobile uses Capacitor Filesystem (recursive writes)."
+  (:require ["@capacitor/filesystem" :refer [Encoding Filesystem]]
+            [cljs-bean.core :as bean]
+            [electron.ipc :as ipc]
             [frontend.config :as config]
             [frontend.fs :as fs]
+            [frontend.mobile.util :as mobile-util]
             [goog.crypt.base64 :as base64]
             [logseq.common.path :as path]
             [promesa.core :as p]))
+
+(defonce ^js mobile-utf8-encoding (.-UTF8 Encoding))
+
+(defn- mobile? []
+  (mobile-util/native-platform?))
 
 (defn graph-dir
   [repo]
@@ -22,7 +30,12 @@
 
 (defn read-base64
   [repo rel]
-  (ipc/ipc :readFileBase64 (abs-path repo rel)))
+  (if (mobile?)
+    (-> (.readFile Filesystem #js {:path (abs-path repo rel)})
+        (p/then (fn [res] (:data (bean/->clj res))))
+        (p/catch (fn [e]
+                   (throw (ex-info (str "Failed to read " rel ": " e) {})))))
+    (ipc/ipc :readFileBase64 (abs-path repo rel))))
 
 (defn read-abs-text
   [abs]
@@ -49,8 +62,23 @@
 
 (defn write-text!
   [repo rel content]
-  (write-bytes-atomic! repo rel content))
+  (if (mobile?)
+    (-> (.writeFile Filesystem #js {:path (abs-path repo rel)
+                                    :data content
+                                    :encoding mobile-utf8-encoding
+                                    :recursive true})
+        (p/then (fn [_] true))
+        (p/catch (fn [e]
+                   (throw (ex-info (str "Failed to write " rel ": " e) {})))))
+    (write-bytes-atomic! repo rel content)))
 
 (defn write-base64!
   [repo rel b64]
-  (write-bytes-atomic! repo rel (base64/decodeStringToUint8Array b64)))
+  (if (mobile?)
+    (-> (.writeFile Filesystem #js {:path (abs-path repo rel)
+                                    :data b64
+                                    :recursive true})
+        (p/then (fn [_] true))
+        (p/catch (fn [e]
+                   (throw (ex-info (str "Failed to write " rel ": " e) {})))))
+    (write-bytes-atomic! repo rel (base64/decodeStringToUint8Array b64))))

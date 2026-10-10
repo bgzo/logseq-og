@@ -30,7 +30,7 @@
 | 重命名 | MVP 不做远端 `MOVE`，表现同新增；与删除传播一起放后续里程碑 |
 | 认证 | HTTP Basic over HTTPS（坚果云需应用密码） |
 | 同步粒度 | 文件级（graph 目录 ↔ WebDAV 远端目录），不改 DB 层同步 |
-| 移动端凭据 | `@capacitor/preferences`（app 私有沙箱）；安全存储插件为后续增强 |
+| 移动端凭据 | app 私有数据目录文件（`Directory.Data/webdav/<graph-key>/credentials.json`，与 Preferences 同层级的沙箱存储）；安全存储插件（Keychain/Keystore）为后续增强 |
 | 大文件 | 单文件固定 100MB 上限，超限跳过并提示（可配置阈值为后续增强） |
 | 冲突副本 | 强制保留，不做关闭开关 |
 | git 仓库 | 只提示用户向 `.gitignore` 添加 `logseq/webdav/`，不自动修改；配置了 remote 时强警告 |
@@ -182,7 +182,7 @@ manifest v1（EDN）：
 │  HTTP → 主进程 node-fetch │  HTTP → CapacitorHttp    │
 │  FS   → frontend.fs(node) │  FS   → frontend.fs(cap) │
 │  状态 → ~/.logseq-og      │  状态 → Directory.Data    │
-│  凭据 → safeStorage       │  凭据 → Preferences       │
+│  凭据 → safeStorage       │  凭据 → app 数据目录文件   │
 └──────────────────────────┴──────────────────────────┘
 ```
 
@@ -338,7 +338,7 @@ src/electron/electron/webdav.cljs       ; IPC：fetch / safeStorage / 多窗口�
 ### 6.2 凭据
 
 - 桌面：Electron `safeStorage` 加密后存 `~/.logseq-og/webdav/<graph-key>/credentials.bin`。
-- 移动：MVP 存 `@capacitor/preferences`（app 私有沙箱），在文档中标注为已知限制；后续换安全存储插件。
+- 移动：MVP 存 `Directory.Data/webdav/<graph-key>/credentials.json`（app 私有沙箱文件，与 Preferences 同层级的安全模型；文档标注为已知限制），后续换安全存储插件。
 - **绝不写入 `logseq/config.edn` 或任何会同步/发布的图内文件。**
 
 ### 6.3 manifest

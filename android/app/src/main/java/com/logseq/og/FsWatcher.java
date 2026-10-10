@@ -246,11 +246,12 @@ public class FsWatcher extends Plugin {
                 if (files != null) {
                     for (File file : files) {
                         String filename = file.getName();
+                        boolean inWebdav = file.getAbsolutePath().contains("/logseq/webdav");
                         if (file.isDirectory()) {
-                            if (!filename.startsWith(".") && !filename.equals("bak") && !filename.equals("version-files") && !filename.equals("node_modules")) {
+                            if (!inWebdav && !filename.startsWith(".") && !filename.equals("bak") && !filename.equals("version-files") && !filename.equals("node_modules")) {
                                 paths.push(file.getAbsolutePath());
                             }
-                        } else if (file.isFile() && !filename.equals("graphs-txid.edn") && !filename.equals("broken-config.edn")) {
+                        } else if (file.isFile() && !inWebdav && !filename.equals("graphs-txid.edn") && !filename.equals("broken-config.edn")) {
                             try {
                                 SimpleFileMetadata metadata = new SimpleFileMetadata(file);
                                 newMetaDb.put(file.getAbsolutePath(), metadata);

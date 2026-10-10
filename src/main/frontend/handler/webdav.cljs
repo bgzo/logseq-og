@@ -2,18 +2,28 @@
   "UI-facing WebDAV sync handler: config, credentials, status and triggers."
   (:require [clojure.string :as string]
             [frontend.handler.notification :as notification]
+            [frontend.mobile.util :as mobile-util]
             [frontend.state :as state]
             [frontend.util :as util]
             [frontend.webdav.client :as client]
             [frontend.webdav.engine :as engine]
             [frontend.webdav.http.desktop :as desktop-http]
+            [frontend.webdav.http.mobile :as mobile-http]
             [frontend.webdav.store :as store]
             [frontend.webdav.store.desktop :as desktop-store]
+            [frontend.webdav.store.mobile :as mobile-store]
             [frontend.webdav.xml :as xml]
             [promesa.core :as p]))
 
-(defonce store-impl (desktop-store/make))
-(defonce http-impl (desktop-http/make))
+(defn- native-mobile?
+  []
+  (mobile-util/native-platform?))
+
+(defonce store-impl
+  (if (native-mobile?) (mobile-store/make) (desktop-store/make)))
+
+(defonce http-impl
+  (if (native-mobile?) (mobile-http/make) (desktop-http/make)))
 (defonce *last-sync (atom {}))
 (defonce *scheduler (atom nil))
 
@@ -121,7 +131,7 @@
 
 (defn start-scheduler!
   []
-  (when (and (util/electron?) (nil? @*scheduler))
+  (when (and (or (util/electron?) (native-mobile?)) (nil? @*scheduler))
     (reset! *scheduler
             (js/setInterval
              (fn []
@@ -140,7 +150,7 @@
   "Called after a graph finished loading: schedule a pull shortly after.
    Deduplicated because both :graph/added and :graph/ready can fire."
   [repo]
-  (when (and (util/electron?) (not util/node-test?) repo)
+  (when (and (or (util/electron?) (native-mobile?)) (not util/node-test?) repo)
     (let [now (.now js/Date)]
       (when (> (- now (get @*last-trigger repo 0)) 10000)
         (swap! *last-trigger assoc repo now)
